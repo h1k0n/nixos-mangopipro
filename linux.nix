@@ -20,7 +20,7 @@ in
 
 # Not using buildLinux because common-config leads to kernel panic
 linuxKernel.manualConfig {
-  inherit src version lib;
+  inherit src version lib stdenv;
   modDirVersion = "6.6.0";
 
   configfile = ./66.config;
