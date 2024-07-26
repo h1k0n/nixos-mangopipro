@@ -1,11 +1,15 @@
 { config, lib, pkgs, modulesPath, pkgsKernel, ... }:
 
+let
+  rootPartitionUUID = "14e19a7b-0ae0-484d-9d54-43bd6fdc20c7";
+in
 {
 
   imports = [ "${modulesPath}/installer/sd-card/sd-image.nix" ];
 
   # Boot0 -> U-Boot
   sdImage = {
+    inherit rootPartitionUUID;
     firmwarePartitionOffset = 40;
     firmwareSize = 984;
     postBuildCommands = ''
@@ -27,7 +31,7 @@
 
     consoleLogLevel = lib.mkDefault 7;
     kernelPackages = pkgsKernel.linuxPackages_nezha;
-    kernelParams = [ "earlycon=sbi" "console=ttyS0,115200n8" "rootwait" "cma=96M" "debug" ];
+    kernelParams = [ "earlycon=sbi" "root=/dev/mmcblk0p2" "rootfstype=ext4" "console=ttyS0,115200n8" "rootwait" "cma=96M" "debug" ];
 
     initrd.availableKernelModules = lib.mkForce [
       "ext4" "sd_mod" "mmc_block"
@@ -45,10 +49,8 @@
   };
   hardware = {
     deviceTree = {
-      name="allwinner/sun20i-d1-lichee-rv-dock.dtb";
-      overlays = [];
+      enable = false;
     };
-    firmware = [];
   };
 
   nix.settings = {

@@ -51,26 +51,23 @@
       #  https://github.com/riscv-non-isa/riscv-toolchain-conventions/blob/master/README.mkd#specifying-the-target-abi-with--mabi
      # gcc.abi = "lp64d";
     };
-    overlay = import ./overlay.nix;
     pkgsKernelCross = import nixpkgs {
       localSystem = "x86_64-linux";
       crossSystem = buildFeatures;
 
       overlays = [
         xthead-toolchains.overlays.default
-        overlay
+        (import ./overlay.nix)
       ];
     };
   in {
     # expose this flake's overlay
-    overlays.default = overlay;
 
     # cross-build an sd-image
     nixosConfigurations.mangopipro = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
 
       specialArgs = {
-        inherit nixpkgs;
         pkgsKernel = pkgsKernelCross;
       };
       modules = [
@@ -82,6 +79,7 @@
         }
 
         ./sd-image-licheerv.nix
+        ./user-group.nix
       ];
     };
 
