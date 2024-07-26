@@ -2,7 +2,9 @@ final: prev:
 
 rec {
   ubootLicheeRV = prev.callPackage ./uboot.nix { };
-  linux_nezha = prev.callPackage ./linux.nix { };
+  linux_nezha = prev.callPackage ./linux.nix {
+    stdenv = prev.gcc14Stdenv;
+  };
   linuxPackages_nezha = packagesFor linux_nezha;
 
   packagesFor = kernel:

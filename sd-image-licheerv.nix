@@ -26,7 +26,7 @@
 
     consoleLogLevel = lib.mkDefault 7;
     kernelPackages = pkgsKernel.linuxPackages_nezha;
-    kernelParams = [ "console=ttyS0,115200n8" "console=tty0" "earlycon=sbi" ];
+    kernelParams = [ "console=ttyS0,115200n8" "root=/dev/mmcblk0p2" "console=tty0" "earlycon=sbi" ];
 
     initrd.availableKernelModules = lib.mkForce [ ];
 
