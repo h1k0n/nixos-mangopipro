@@ -18,9 +18,6 @@ in {
     isNormalUser = true;
     home = "/home/${username}";
     extraGroups = ["users" "networkmanager" "wheel" "docker"];
-    openssh.authorizedKeys.keys = [
-      publickey
-    ];
   };
 
 
