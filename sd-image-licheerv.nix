@@ -26,19 +26,26 @@
 
     consoleLogLevel = lib.mkDefault 7;
     kernelPackages = pkgsKernel.linuxPackages_nezha;
-    kernelParams = [ "console=ttyS0,115200n8" "root=/dev/mmcblk0p2" "console=tty0" "earlycon=sbi" ];
+    kernelParams = [ "earlycon=sbi" "root=/dev/mmcblk0p2" "rootfstype=ext4" "console=ttyS0,115200n8" "rootwait" "cma=96M" "debug" ];
 
-    initrd.availableKernelModules = lib.mkForce [ ];
+    initrd.availableKernelModules = lib.mkForce [
+      "ext4" "sd_mod" "mmc_block"
+      "xhci_hcd"
+      "usbhid" "hid_generic"
+    ];
 
     extraModulePackages = [ pkgsKernel.linuxPackages_nezha.rtl8723ds ];
     # Exclude zfs
-    supportedFilesystems = lib.mkForce [ ];
+    supportedFilesystems = lib.mkForce [
+      "vfat"
+      "ext4"
+      "btrfs"
+    ];
   };
   hardware = {
     deviceTree = {
       enable = false;
     };
-    firmware = [];
   };
 
   nix.settings = {
