@@ -21,6 +21,7 @@ buildUBoot {
   extraMeta.platforms = [ "riscv64-linux" ];
   extraMakeFlags = [
     "OPENSBI=${opensbi}/share/opensbi/lp64/generic/firmware/fw_dynamic.bin"
+    "DEVICE_TREE=sun20i-d1-lichee-rv-dock"
   ];
 
   filesToInstall = ["u-boot-sunxi-with-spl.bin"];
