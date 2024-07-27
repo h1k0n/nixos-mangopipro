@@ -13,7 +13,7 @@ let
     repo = "linux";
     # Last git revision from the `riscv/d1-wip` branch:
     rev = "v6.8";
-    sha256 = "";
+    sha256 = "sha256-rXihZ/3ix36O/HsMlRUmsBmt1M/CEb65+3vMAqEP8fc=";
   };
   version = "6.8.0";
 in

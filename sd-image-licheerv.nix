@@ -36,8 +36,7 @@
   };
   hardware = {
     deviceTree = {
-      name="allwinner/sun20i-d1-lichee-rv-dock.dtb";
-      overlays = [];
+      enable = false;
     };
     firmware = [];
   };
