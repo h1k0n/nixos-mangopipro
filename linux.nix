@@ -30,7 +30,7 @@ linuxKernel.manualConfig {
   configfile = ./68.config;
   allowImportFromDerivation = true;
   extraMakeFlags = [
-    "KCFLAGS+=-march=rv64gc_v0p7_zihintpause"
+    "KCFLAGS+=-march=rv64gc_xtheadvector_zihintpause"
     "KCFLAGS+=-mcpu=thead-c906"
   ];
 }
