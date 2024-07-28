@@ -4,6 +4,8 @@
 , linuxKernel
 , writeText
 , ubootTools
+, overrideCC
+, buildPackages
 , ...
 } @ args:
 (
@@ -16,12 +18,13 @@ let
     sha256 = "sha256-rXihZ/3ix36O/HsMlRUmsBmt1M/CEb65+3vMAqEP8fc=";
   };
   version = "6.8.0";
+  kernelStdenv = overrideCC stdenv buildPackages.xthead.gcc14;
 in
 
 # Not using buildLinux because common-config leads to kernel panic
 linuxKernel.manualConfig {
   inherit src version lib;
-  stdenv = stdenv.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
+  stdenv = kernelStdenv.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
   modDirVersion = "6.8.0";
 
   configfile = ./68.config;
