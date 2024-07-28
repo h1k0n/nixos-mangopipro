@@ -6,7 +6,7 @@
 }:
 
 buildUBoot {
-  version = "unstable-2023-10-31";
+  version = "d1-2022-10-31";
 
   src = fetchFromGitHub {
     owner = "smaeul";
@@ -17,7 +17,7 @@ buildUBoot {
   };
   patches = [];
 
-  defconfig = "lichee_rv_dock_defconfig";
+  defconfig = "nezha_defconfig";
   extraMeta.platforms = [ "riscv64-linux" ];
   extraMakeFlags = [
     "OPENSBI=${opensbi}/share/opensbi/lp64/generic/firmware/fw_dynamic.bin"
