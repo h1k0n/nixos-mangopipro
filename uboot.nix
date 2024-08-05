@@ -6,16 +6,20 @@
 }:
 
 buildUBoot {
-  version = "d1-2022-10-31";
+  version = "d1-wip";
 
   src = fetchFromGitHub {
     owner = "smaeul";
     repo = "u-boot";
     # Last git revision from the `d1-wip` branch:
-    rev = "329e94f16ff84f9cf9341f8dfdff7af1b1e6ee9a";
-    sha256 = "sha256-c4yHizDvfRTqnxyKzNrSPCdlesBWuzgyQIEhpR690Vc=";
+    rev = "2e89b706f5c956a70c989cd31665f1429e9a0b48";
+    sha256 = "";
   };
-  patches = [];
+  patches = [
+  ];
+  extraPatches = [
+    ./uboot.patch
+  ]; 
 
   defconfig = "nezha_defconfig";
   extraMeta.platforms = [ "riscv64-linux" ];
