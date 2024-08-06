@@ -10,6 +10,12 @@ in {
   # =========================================================================
 
   networking.hostName = hostname;
+  networking.wireless.enable = true;
+  networking.wireless.networks = {
+    CMCC-Tc75 = {
+      psk = "tm0uxtt2";
+    };
+  };
 
   # TODO Define a user account. Don't forget to update this!
   users.users."${username}" = {
