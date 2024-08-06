@@ -1962,19 +1962,6 @@ diff -uNr old/Documentation/devicetree/bindings/riscv/cpus.yaml.orig new/Documen
 +        };
 +    };
 +...
-diff -uNr old/scripts/dtc/include-prefixes/riscv/allwinner/sun20i-d1s.dtsi new/scripts/dtc/include-prefixes/riscv/allwinner/sun20i-d1s.dtsi
---- old/scripts/dtc/include-prefixes/riscv/allwinner/sun20i-d1s.dtsi	2024-03-10 20:38:09.000000000 +0000
-+++ new/scripts/dtc/include-prefixes/riscv/allwinner/sun20i-d1s.dtsi	2024-07-31 03:04:07.000000000 +0000
-@@ -27,7 +27,8 @@
- 			riscv,isa = "rv64imafdc";
- 			riscv,isa-base = "rv64i";
- 			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr",
--					       "zifencei", "zihpm";
-+					       "zifencei", "zihpm", "xtheadvector";
-+			thead,vlenb = <128>;
- 			#cooling-cells = <2>;
- 
- 			cpu0_intc: interrupt-controller {
 diff -uNr old/tools/testing/selftests/riscv/vector/.gitignore new/tools/testing/selftests/riscv/vector/.gitignore
 --- old/tools/testing/selftests/riscv/vector/.gitignore	2024-03-10 20:38:09.000000000 +0000
 +++ new/tools/testing/selftests/riscv/vector/.gitignore	2024-07-31 07:51:24.000000000 +0000
