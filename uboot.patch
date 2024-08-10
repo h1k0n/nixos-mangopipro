@@ -1,12 +1,12 @@
---- a/arch/riscv/dts/sun20i-d1.dtsi	2024-08-10 08:16:17.332222038 +0800
-+++ b/arch/riscv/dts/sun20i-d1.dtsi	2024-08-10 08:12:30.869886489 +0800
-@@ -35,6 +35,9 @@
- 			i-cache-size = <32768>;
- 			mmu-type = "riscv,sv39";
+--- u-boot-old/arch/riscv/dts/sun20i-d1s.dtsi	2024-08-05 14:36:58.764000000 +0000
++++ u-boot/arch/riscv/dts/sun20i-d1s.dtsi	2024-07-31 13:54:12.000000000 +0000
+@@ -27,7 +27,8 @@
  			riscv,isa = "rv64imafdc";
-+			riscv,isa-base = "rv64i";
-+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr",
-+					       "zifencei", "zihpm";
+ 			riscv,isa-base = "rv64i";
+ 			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr",
+-					       "zifencei", "zihpm";
++					       "zifencei", "zihpm", "xtheadvector";
++			thead,vlenb = <128>;
  			#cooling-cells = <2>;
  
  			cpu0_intc: interrupt-controller {
