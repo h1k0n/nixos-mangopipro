@@ -4,8 +4,8 @@
 , linuxKernel
 , writeText
 , ubootTools
-, overrideCC
-, buildPackages
+, pkgs
+, linuxManualConfig
 , ...
 } @ args:
 (
@@ -18,13 +18,12 @@ let
     sha256 = "sha256-rXihZ/3ix36O/HsMlRUmsBmt1M/CEb65+3vMAqEP8fc=";
   };
   version = "6.8.0";
-  kernelStdenv = overrideCC stdenv buildPackages.xthead.gcc14;
+  gcc14env = stdenv;
 in
 
 # Not using buildLinux because common-config leads to kernel panic
-linuxKernel.manualConfig {
-  inherit src version lib;
-  stdenv = kernelStdenv.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
+linuxManualConfig {
+  inherit src version lib stdenv;
   modDirVersion = "6.8.0";
   kernelPatches = [
     {
@@ -39,4 +38,5 @@ linuxKernel.manualConfig {
 ).overrideAttrs (old: {
   name = "k"; # shorten the kernel name, dodge uboot length limits, otherwise it will make uboot fail to load kernel. 
   nativeBuildInputs = old.nativeBuildInputs ++ [ubootTools];
+  stdenv = stdenv.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
 })

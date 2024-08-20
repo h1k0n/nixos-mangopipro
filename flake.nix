@@ -6,15 +6,11 @@
     # so we can use the small channel to get updates more quickly.
     #    checkout more details here: https://hydra.nixos.org/jobset/nixos/release-23.05#tabs-jobs
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    xthead-toolchains = {
-      url = "github:milkv-community/nixpkgs-xthead-toolchains";
-    };
   };
 
   outputs = {
     self,
     nixpkgs,
-    xthead-toolchains,
     ...
   }: let
     buildFeatures = {
@@ -56,18 +52,7 @@
       crossSystem = buildFeatures;
 
       overlays = [
-        xthead-toolchains.overlays.default
         (import ./overlay.nix)
-      ];
-    };
-    pkgsUBoot = import nixpkgs {
-      localSystem = "x86_64-linux";
-      crossSystem = buildFeatures;
-      overlays = [
-      (self: super: {
-        stdenv = super.gcc14Stdenv;
-      })
-        (import ./overlayUboot.nix)
       ];
     };
   in {
@@ -79,7 +64,6 @@
 
       specialArgs = {
         pkgsKernel = pkgsKernelCross;
-        pkgsUb = pkgsUBoot;
       };
       modules = [
         {
