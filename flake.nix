@@ -58,10 +58,8 @@
     pkgsUBoot = import nixpkgs {
       localSystem = "x86_64-linux";
       crossSystem = buildFeatures;
-      overlays = [
-      (self: super: {
-        stdenv = super.gcc14Stdenv;
-      })
+      config.replaceStdenv = ( { pkgs }: pkgs.clangStdenv);
+       overlays = [
         (import ./overlayUboot.nix)
       ];
     };
