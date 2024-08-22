@@ -19,11 +19,13 @@ let
   };
   version = "6.8.0";
   gcc14env = stdenv;
+  finalStdenv = gcc14env.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
 in
 
 # Not using buildLinux because common-config leads to kernel panic
 linuxManualConfig {
-  inherit src version lib stdenv;
+  inherit src version lib;
+  stdenv = finalStdenv;
   modDirVersion = "6.8.0";
   kernelPatches = [
     {
@@ -38,5 +40,4 @@ linuxManualConfig {
 ).overrideAttrs (old: {
   name = "k"; # shorten the kernel name, dodge uboot length limits, otherwise it will make uboot fail to load kernel. 
   nativeBuildInputs = old.nativeBuildInputs ++ [ubootTools];
-  stdenv = stdenv.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
 })
