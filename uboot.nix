@@ -17,7 +17,7 @@
     sha256 = "sha256-POjP3PPuluYNTWWo5EUFWT0K3zYFWBFviPOGIhnejCA=";
   };
 
-  defconfig = "nezha_defconfig";
+  defconfig = "lichee_rv_dock_defconfig";
   extraMeta.platforms = [ "riscv64-linux" ];
   extraMakeFlags = [
     "OPENSBI=${opensbi}/share/opensbi/lp64/generic/firmware/fw_dynamic.bin"
