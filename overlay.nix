@@ -1,7 +1,12 @@
 final: prev:
 
 rec {
-  ubootLicheeRV = prev.callPackage ./uboot.nix { };
+  buildUB = prev.callPackage ./uboot-default.nix {
+    stdenv = prev.gcc14Stdenv;
+  };
+  ubootLicheeRV = prev.callPackage ./uboot.nix {
+    buildUBoot = final.buildUB.buildUBoot;
+  };
   linux_nezha = prev.callPackage ./linux.nix {
     # stdenv = prev.gcc14Stdenv;
   };

@@ -18,7 +18,7 @@ let
     sha256 = "sha256-rXihZ/3ix36O/HsMlRUmsBmt1M/CEb65+3vMAqEP8fc=";
   };
   version = "6.8.0";
-  kernelStdenv = overrideCC stdenv buildPackages.xthead.gcc14;
+  kernelStdenv = overrideCC stdenv buildPackages.gcc14;
 in
 
 # Not using buildLinux because common-config leads to kernel panic
