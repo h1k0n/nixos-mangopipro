@@ -15,7 +15,9 @@ buildUBoot {
     rev = "329e94f16ff84f9cf9341f8dfdff7af1b1e6ee9a";
     sha256 = "sha256-c4yHizDvfRTqnxyKzNrSPCdlesBWuzgyQIEhpR690Vc=";
   };
-  patches = [];
+  patches = [
+    ./uboot.patch
+  ];
 
   defconfig = "nezha_defconfig";
   extraMeta.platforms = [ "riscv64-linux" ];
