@@ -8,7 +8,8 @@ rec {
     buildUBoot = final.buildUB.buildUBoot;
   };
   linux_nezha = prev.callPackage ./linux.nix {
-    # stdenv = prev.gcc14Stdenv;
+    stdenv = prev.gcc14Stdenv;
+    ubootTools = final.buildUB.ubootTools;
   };
   linuxPackages_nezha = packagesFor linux_nezha;
 

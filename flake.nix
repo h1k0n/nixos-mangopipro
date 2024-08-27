@@ -6,15 +6,11 @@
     # so we can use the small channel to get updates more quickly.
     #    checkout more details here: https://hydra.nixos.org/jobset/nixos/release-23.05#tabs-jobs
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    xthead-toolchains = {
-      url = "github:milkv-community/nixpkgs-xthead-toolchains";
-    };
   };
 
   outputs = {
     self,
     nixpkgs,
-    xthead-toolchains,
     ...
   }: let
     buildFeatures = {
@@ -56,7 +52,6 @@
       crossSystem = buildFeatures;
 
       overlays = [
-        xthead-toolchains.overlays.default
         (import ./overlay.nix)
       ];
     };
