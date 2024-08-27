@@ -63,7 +63,7 @@ let
     src = if src == null then defaultSrc else src;
 
     patches = [
-      ./0001-configs-rpi-allow-for-bigger-kernels.patch
+      ./0001-configs-rpi-allow-for-bigger-kernels1.patch
     ] ++ extraPatches;
 
     postPatch = ''
