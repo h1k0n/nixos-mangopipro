@@ -1,6 +1,6 @@
---- a/arch/riscv/dts/sun20i-d1.dtsi	2024-08-10 08:16:17.332222038 +0800
-+++ b/arch/riscv/dts/sun20i-d1.dtsi	2024-08-10 08:12:30.869886489 +0800
-@@ -35,6 +35,9 @@
+--- a/arch/riscv/dts/sun20i-d1.dtsi	2024-08-28 10:34:54.242186804 +0800
++++ b/arch/riscv/dts/sun20i-d1.dtsi	2024-08-28 21:24:42.154255833 +0800
+@@ -35,6 +35,10 @@
  			i-cache-size = <32768>;
  			mmu-type = "riscv,sv39";
  			riscv,isa = "rv64imafdc";
