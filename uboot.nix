@@ -19,7 +19,7 @@ buildUBoot {
     ./uboot.patch
   ];
 
-  defconfig = "lichee_rv_dock_defconfig";
+  defconfig = "nezha_defconfig";
   extraMeta.platforms = [ "riscv64-linux" ];
   extraMakeFlags = [
     "OPENSBI=${opensbi}/share/opensbi/lp64/generic/firmware/fw_dynamic.bin"
