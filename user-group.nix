@@ -16,6 +16,8 @@ in {
       psk = "tm0uxtt2";
     };
   };
+  services.openssh.enable = true;
+  services.openssh.settings.PermitRootLogin = "yes";
 
   # TODO Define a user account. Don't forget to update this!
   users.users."${username}" = {
