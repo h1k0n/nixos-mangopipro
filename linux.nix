@@ -10,14 +10,10 @@
 } @ args:
 (
 let
-  src = fetchFromGitHub {
-    owner = "torvalds";
-    repo = "linux";
-    # Last git revision from the `riscv/d1-wip` branch:
-    rev = "v6.8";
-    sha256 = "sha256-rXihZ/3ix36O/HsMlRUmsBmt1M/CEb65+3vMAqEP8fc=";
+  src = fetchTarball {
+    url = "https://git.kernel.org/pub/scm/linux/kernel/git/palmer/linux.git/snapshot/linux-b3f835cd7339919561866252a11831ead72e7073.tar.gz";
   };
-  version = "6.8.0";
+  version = "6.11.0";
   kernelStdenv = overrideCC stdenv buildPackages.gcc14;
 in
 
@@ -25,11 +21,15 @@ in
 linuxKernel.manualConfig {
   inherit src version lib;
   stdenv = kernelStdenv.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
-  modDirVersion = "6.8.0";
+  modDirVersion = "6.11.0";
   kernelPatches = [
     {
-    name = "c906";
-    patch = ./c906.patch;
+    name = "xthead";
+    patch = ./xtheadvector-v9.patch;
+    }
+    {
+    name = "plic";
+    patch = ./v3-irqchip-sifive-plic-Probe-plic-driver-early-for-Allwinner-D1-platform.patch;
     }
   ];
 

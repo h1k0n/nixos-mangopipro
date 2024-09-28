@@ -1,0 +1,4044 @@
+From patchwork Wed Aug  7 00:31:37 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755561
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id 46EF7C52D7B
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:32:11 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=5v3C3H573alR3dI082fW3eeBghbeBiFpMTmrTtxKiaM=; b=zz7VdCd4pL8mkX
+	uHA1Q3PfNoRll2vc6K89Iv6eKDK6rQLTEBJhkKW2vtyOIX+pWwuasIAwoSp/SQ319bUf2EIPhtYiz
+	10qJRE8zTk8JprLDkXn24Itgeoc8ueqYkqUQS0mybEZBHJDpYN/K8hwVbrRjz65QwVI4AjLOaVgUk
+	u87bVuIdJuq26VHYR+rVpI30zhiQ83C8XDvQWV+coTWpzWSgEjWGnATaze17LjQUUqu9n/5FFCwL3
+	r/v0QJN2LkdGibtuVpar86JW1NLXc5kHpFa6CHKbO7JnB1qOXkxeGXSI5H7jn+1vAjqoNIOzRyg+x
+	1gJH+NNeeO+dcvXmuSzA==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUak-00000003Qlm-1zYj;
+	Wed, 07 Aug 2024 00:31:50 +0000
+Received: from mail-il1-x134.google.com ([2607:f8b0:4864:20::134])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUah-00000003Qkd-0A9P
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:31:48 +0000
+Received: by mail-il1-x134.google.com with SMTP id
+ e9e14a558f8ab-39b41306b4dso4558725ab.3
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:31:46 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990706;
+ x=1723595506; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=XJ+D4p75bjfTb0EItLpHxQIjWmqIJlAlnUMhz5TxedE=;
+        b=VsSaJXpn9MfSkPc05qHp0X78vbZehbL7MCwOrUij9g+3e9jaDE/fa+jG92sBWLsJwd
+         gUVOmuehEgvI57v8Q7hQtt4jFdiEFf/cPZwOGyxWk/l/8CdEAoM+iVhC2R5OG1Rb1yfu
+         zSlq/ac3Z2kbvuLa8X3s08u7Y4aqX1gOuTIiQP5q0JCj0yBhqJHpIDYNDZA9n+wKQ6fn
+         dNHwR8tLYONgB4AnL3U0sdwjocLuT/0K8Hl+fU+A1iVLDSNWdG/XwdfBDgGOzusU0U7l
+         VIRLiO+X+c93Kd+kEQycWG5w0JQUwbkndp2CXmcrYw+0ilULIS7dO36wNoWjANXck9yK
+         0rYA==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990706; x=1723595506;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=XJ+D4p75bjfTb0EItLpHxQIjWmqIJlAlnUMhz5TxedE=;
+        b=o1SI4HoXMEWw5crQL3ryiEujwO2gveBDqG50udGyqurvgDk3WrRuJgHT6uAy0bh4zm
+         ddX0/GO62BgPWCWsEh5gnAas6mgHWu9/chhFiG2g8UDAXbZwtBFs0+1RANcnN+SO0Nzg
+         RBAChGzCipDjnH2D8CpOyq2MWQzdBe8yhGc65Le+Ox1xSXv2NbugwbfanTfJU/YPf9a7
+         ayfMCiAxKtDgS3c2CcIZ+y2Kb32zv6WboS9yoXEANv9aHZsqs4APGMbYC0//Cc02Cmkq
+         HgD+22vBLOezFt2E9424sEfj34JqiodOj8ocenaQvcM+OmE7oy4MkzGELUzJ5599bHL1
+         SWHg==
+X-Gm-Message-State: AOJu0YzdqzN5YLrFx2JYKjyS32L+itLX2a9Xh8axyC4vxXrvd/rQ2oxN
+	gF2WCr9xt9GJj0EV9nJLkyyD2qg7bdznUcZnnNXoSozDu2sfBz/L0grw6elZazE=
+X-Google-Smtp-Source: 
+ AGHT+IGt3XlJs5WA24THRxvIb9/ANnk9itE8gX2KWFij4dZh7cIbInKOO2OSONSuPSefGVoo/Wv5/A==
+X-Received: by 2002:a92:c003:0:b0:39a:eb26:45f8 with SMTP id
+ e9e14a558f8ab-39b1fc1caf9mr159350705ab.20.1722990705710;
+        Tue, 06 Aug 2024 17:31:45 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.31.43
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:31:44 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:37 -0700
+Subject: [PATCH v9 01/13] dt-bindings: riscv: Add xtheadvector ISA
+ extension description
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-1-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>,
+ Conor Dooley <conor.dooley@microchip.com>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=1788;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=n+1uXcpPSzDKbEZ3gf2yswWeiNf7ojNdJOC78EyvEvs=;
+ b=6O6Y/O7ilQvMwXHjXH5ncVCTt0keW9yY1oW1bUdxC8xpCAYGnrYGKuz4ml0Ca6Y2H6csZpNHV
+ TvVxuODA9RcAT4JN9cvY6+06cznH6+IJFj8SS27BN5w4qhDRIrivNt7
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173147_178191_688AAC79 
+X-CRM114-Status: UNSURE (   7.79  )
+X-CRM114-Notice: Please train this message.
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+The xtheadvector ISA extension is described on the T-Head extension spec
+Github page [1] at commit 95358cb2cca9.
+
+Link: https://github.com/T-head-Semi/thead-extension-spec/blob/95358cb2cca9489361c61d335e03d3134b14133f/xtheadvector.adoc [1]
+
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+Reviewed-by: Conor Dooley <conor.dooley@microchip.com>
+---
+ Documentation/devicetree/bindings/riscv/extensions.yaml | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/riscv/extensions.yaml b/Documentation/devicetree/bindings/riscv/extensions.yaml
+index a06dbc6b4928..1a3d01aedde6 100644
+--- a/Documentation/devicetree/bindings/riscv/extensions.yaml
++++ b/Documentation/devicetree/bindings/riscv/extensions.yaml
+@@ -556,6 +556,10 @@ properties:
+             latency, as ratified in commit 56ed795 ("Update
+             riscv-crypto-spec-vector.adoc") of riscv-crypto.
+ 
++        # vendor extensions, each extension sorted alphanumerically under the
++        # vendor they belong to. Vendors are sorted alphanumerically as well.
++
++        # Andes
+         - const: xandespmu
+           description:
+             The Andes Technology performance monitor extension for counter overflow
+@@ -563,6 +567,12 @@ properties:
+             Registers in the AX45MP datasheet.
+             https://www.andestech.com/wp-content/uploads/AX45MP-1C-Rev.-5.0.0-Datasheet.pdf
+ 
++        # T-HEAD
++        - const: xtheadvector
++          description:
++            The T-HEAD specific 0.7.1 vector implementation as written in
++            https://github.com/T-head-Semi/thead-extension-spec/blob/95358cb2cca9489361c61d335e03d3134b14133f/xtheadvector.adoc.
++
+     allOf:
+       # Zcb depends on Zca
+       - if:
+
+From patchwork Wed Aug  7 00:31:38 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755557
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id 9FF80C52D6F
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:32:02 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=TlzR9XUC3RaBimlQ+O2vV/DOBZKH2DUoCQWEZOBWwi4=; b=u6rrlly1comfgU
+	hVtpymOqLaCdKeuzMQJgbvaXN+V37Dw8obd+fKS+mLCJjsTl0XShcyl6o3IqACYX9gU8pNJ14GnQ2
+	tuFi8tmw2Iu+MWisZi94W9GoA+p/9L8mIEUgnevIrcNNtrELlQp/4FXTu7E0JrEmUSekxY6UsoX1q
+	LrM0oUw38jiXQs3+7uuCNBgDKC6l2S7rdpgRpe/e7b3Biuxxr5gHarKdGouTr2/6X0qKyGodxM7+U
+	3Sq5KFqlUoU4GQp5+uu+NamidU4u4eDKvU0j69uNRKNs/+8X4lOIBE1ZAIeOgkqqRs9P2EE8aBjL4
+	me4gcFlJ1sBfkOU5/6oA==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUal-00000003Qm8-0VCG;
+	Wed, 07 Aug 2024 00:31:51 +0000
+Received: from mail-pf1-x42f.google.com ([2607:f8b0:4864:20::42f])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUai-00000003Qkx-3tIa
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:31:50 +0000
+Received: by mail-pf1-x42f.google.com with SMTP id
+ d2e1a72fcca58-70d399da0b5so1004914b3a.3
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:31:48 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990708;
+ x=1723595508; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=8a31h58dvirjjptvxje9y9Mqcx9iPDZwg1ciuyTglV0=;
+        b=g/JdNXUL6ym972kJaSmOLesukbCCpK/8JaW5Q2pBo+bwVIPssz8TmjSt/2qPpx4YDl
+         eOy4ucf6k6CRTTknzdSHFiUmkLJJJ9GFiOT53sSpLGmwU1qNNUIGH1+IuuoCBOj2sDLh
+         SjO8avpRc8hS0/wDfo+8vQUOVPgjMRAj4NLlJwpcA0QkNTdJWN+zl5LorJ9bcjTIuxmK
+         /lYsNZGKwqm1th74IIQUKsLhMCaU/GgEjy4TiVfUdTRv5tJWjXbkkVznsc5uWxIJ7MeG
+         jvXtKgYwqL3bib8vh6CEkjccFNj6aDDHlJ59zBVO5O7FTWNiPydcQt2WVJqH0QWbfcmP
+         /BSg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990708; x=1723595508;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=8a31h58dvirjjptvxje9y9Mqcx9iPDZwg1ciuyTglV0=;
+        b=Gs1FHEAEiaS486do9RUOZeSvA4sJB9/KLewWSzU2KK3X/va70gPVaHL+A06CtmIwcm
+         7Fut9OYvylCC/QtDV0RVj61LUs+z0WsoBddWgD5CeyDQVReN9ECEbJKTHh1ay8rz7ETH
+         qlLRroJ0JM3m7wPUcb4mCgyNV6qPrm5Ne/wrE4M2oyr5ZBKUMYFzIP0/+b4jV+cZfDq3
+         yDAirnwx0o0CdBlrGc/k87QZu2X8t4md+M9MaUF638z+4DL3BJLmURZlJAWytcBveIwJ
+         CB6UYGOf2spJ6vsE4Xx8a9e5Qapo4YB3gNtY5FGP9oa3FxaT6dUIgD8EM48oPDpcm4s2
+         uUqw==
+X-Gm-Message-State: AOJu0YxNoPmbyYoUkF5SvQamKSyI1r2D/vUExiL9JMX8B9OeQhFssABy
+	2Cfz/1WcB+WanO+xo5JkHrp72f4QBtflxJqSAkpG+2oKKlenSdOXF3pR+92QcQ8=
+X-Google-Smtp-Source: 
+ AGHT+IFlZgOw01pjcMoUd+dM92axczabu39jYLZiTwPJF7kvu/LR+bRd7eVCTv14rSm6HVWFrxdAGA==
+X-Received: by 2002:a05:6a00:140b:b0:70e:8dfd:412e with SMTP id
+ d2e1a72fcca58-7106cfd9d29mr20899556b3a.18.1722990707845;
+        Tue, 06 Aug 2024 17:31:47 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.31.45
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:31:47 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:38 -0700
+Subject: [PATCH v9 02/13] dt-bindings: cpus: add a thead vlen register
+ length property
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-2-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>,
+ Conor Dooley <conor.dooley@microchip.com>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=1911;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=g0Gsy+5TQh3RSmd39xewdNDSsmzEd+HtR+40T1Y+noY=;
+ b=N+0Xga663TzEPFBOSLMhnRrEEwkQ/6SLmoDaPhoQWHjLrgqgonGuO5TdqDaKrTXvQOAb1J3CO
+ rYW8rc78xHSAy4uY9OvfHUczaGdel8ciuSTRy72vsYUO4dE58ItO39R
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173149_009704_7BF919BE 
+X-CRM114-Status: GOOD (  10.67  )
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+Add a property analogous to the vlenb CSR so that software can detect
+the vector length of each CPU prior to it being brought online.
+Currently software has to assume that the vector length read from the
+boot CPU applies to all possible CPUs. On T-Head CPUs implementing
+pre-ratification vector, reading the th.vlenb CSR may produce an illegal
+instruction trap, so this property is required on such systems.
+
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+Reviewed-by: Conor Dooley <conor.dooley@microchip.com>
+---
+ Documentation/devicetree/bindings/riscv/cpus.yaml | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/riscv/cpus.yaml b/Documentation/devicetree/bindings/riscv/cpus.yaml
+index 8edc8261241a..c0cf6cf56749 100644
+--- a/Documentation/devicetree/bindings/riscv/cpus.yaml
++++ b/Documentation/devicetree/bindings/riscv/cpus.yaml
+@@ -26,6 +26,18 @@ description: |
+ allOf:
+   - $ref: /schemas/cpu.yaml#
+   - $ref: extensions.yaml
++  - if:
++      not:
++        properties:
++          compatible:
++            contains:
++              enum:
++                - thead,c906
++                - thead,c910
++                - thead,c920
++    then:
++      properties:
++        thead,vlenb: false
+ 
+ properties:
+   compatible:
+@@ -95,6 +107,13 @@ properties:
+     description:
+       The blocksize in bytes for the Zicboz cache operations.
+ 
++  thead,vlenb:
++    $ref: /schemas/types.yaml#/definitions/uint32
++    description:
++      VLEN/8, the vector register length in bytes. This property is required on
++      thead systems where the vector register length is not identical on all harts, or
++      the vlenb CSR is not available.
++
+   # RISC-V has multiple properties for cache op block sizes as the sizes
+   # differ between individual CBO extensions
+   cache-op-block-size: false
+
+From patchwork Wed Aug  7 00:31:39 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755554
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id BABE3C49EA1
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:31:58 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=jqYR3D0iMPg1AeIIB2RazRTxnBl3TlotXtO3e1p6x5Q=; b=r+sszswLJo4iT+
+	E86i58mxd5h0JVPPFE/S0U0Vdo1ErmwXMWU4vgwaVAuv7fIxHVr7hm+r8VIuoal9xUN7BE3J1ksTl
+	nLyebcB7ZvayOkhm7m7PjabSuFMN7rQvniu2/tBRSLGbqBb2fSTCXGyI84tzLbX0rfntUtOZeOH04
+	V+cYP2hpKDg53h+kJaSnSzp/h7DddLtfqGqUR3QGRoyk01WUWIWyVwXA//j0rj+i8z5HCYiyAtpGg
+	bICGEffiYa3avPZpIOD4vfd0LzQDV4Uza9bnWsqtK/sqiMZ8tw5bjNgGQUSOYpCEcXEu3Qbr6AnDY
+	qCfoa4hXOHl6uFvGshtw==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUao-00000003QoQ-3xTM;
+	Wed, 07 Aug 2024 00:31:54 +0000
+Received: from mail-oa1-x2b.google.com ([2001:4860:4864:20::2b])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUam-00000003QmB-00ni
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:31:53 +0000
+Received: by mail-oa1-x2b.google.com with SMTP id
+ 586e51a60fabf-267b7ef154aso764419fac.0
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:31:51 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990711;
+ x=1723595511; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=34tWDw4L8SN+akOs9Do5H0mwwhItc2hNKASWAYLthDo=;
+        b=qQZRckJHQ3SWJ55IQkztQG5UpYRzl4SpgtRqpR86X7yEDfGU2fyuzTNOMS3os9Stfk
+         lKJJoIX/qn931wIA4wsJZ7YiDFU+/X1mZmaV67O+Pi3FXYJre5hMfuPJKS08KfMLvOPS
+         cIgAHzmcn66P9nxHOrtMM4TSdVAyQSotVlys0izH1hOTWmLWD1W6SA7Hsg/hUK9f1UTw
+         Ya2cR19m3AgmbbOw4BfemzHe1SJ9DX5Dg1vqoeZ8G7DiqsVZTOFvJRcM9LRPtIwitmnD
+         IyMmMp2XyHnubjHeOMWtYLwzrBmmIIlMSUXocP4KKaiRAfcgfX3hlTuEXk/Tkl/oWbb+
+         fhzw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990711; x=1723595511;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=34tWDw4L8SN+akOs9Do5H0mwwhItc2hNKASWAYLthDo=;
+        b=VgKiWdmcwfOZ/4rIV7qoxu+j8ZCo39mAk9gh0W8k1lweSVXG8SCcVeOCW9cWQXF/Bu
+         dCFOfCkByj0IRkH8wC3JwQETpMcZtZwFwojOCNwDBbI2e1Fl3UaTkrQ9Q/kmfj8gNRbb
+         GxhHUN/Dl6JNaooRKAngdVKNrKRudEfIPwkfCr2Wm0HirV6aG2MWugbTAIjXk0DRYuBD
+         VRb9Rq7EbfOrKROMxfOpX190ZMj3ZRsNYwWIYtrjNWKuYqFaoT+vjA0+o1eeOUOPNLeC
+         3EEjZb9AJDF7uM3AiyxTstl9c14K4VCRmTvpzefnvUr1SOlklZDeX3HZiA11P2ZhygNX
+         tZfA==
+X-Gm-Message-State: AOJu0Yzj/2iXy0W1cqYvP6zT2yU5icbCS/9NCgb6trB8FJFRCb5Jf7s5
+	OsjhllyF8n6t8evn3w937YJDJpNUCcjfjCof3fieEGtFRN2RuOdx9nwB5lckYu4=
+X-Google-Smtp-Source: 
+ AGHT+IHwYGXcB8IEkAHupmpVK0nhVZhhoMXREywsV/hko3tnE1IuMh1Xx52utwzABh32nak18wgz7Q==
+X-Received: by 2002:a05:6870:639f:b0:25e:129c:2223 with SMTP id
+ 586e51a60fabf-26891b1d159mr21444778fac.19.1722990709937;
+        Tue, 06 Aug 2024 17:31:49 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.31.48
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:31:49 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:39 -0700
+Subject: [PATCH v9 03/13] riscv: dts: allwinner: Add xtheadvector to the
+ D1/D1s devicetree
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-3-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>,
+ Conor Dooley <conor.dooley@microchip.com>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=960;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=twijwVNwXlRnqiWorC6lSyhzIHtshmEdOl4sTIAcK5Q=;
+ b=8DznulBYmzcnRUsTl4PU1Nfrq9DX3CsK4UyIPn+bOSuqD+WxzqyupxoffPAdmO9Cn/UjtYnuL
+ m95rcERBaneBI+ZYTnjfNE+sqBlPjvW4j5RZ2+DHqV9e0OsJAzGlQtx
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173152_080686_091ADA26 
+X-CRM114-Status: UNSURE (   9.09  )
+X-CRM114-Notice: Please train this message.
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+The D1/D1s SoCs support xtheadvector so it can be included in the
+devicetree. Also include vlenb for the cpu.
+
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+Reviewed-by: Conor Dooley <conor.dooley@microchip.com>
+---
+ arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi b/arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi
+index 64c3c2e6cbe0..6367112e614a 100644
+--- a/arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi
++++ b/arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi
+@@ -27,7 +27,8 @@ cpu0: cpu@0 {
+ 			riscv,isa = "rv64imafdc";
+ 			riscv,isa-base = "rv64i";
+ 			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr",
+-					       "zifencei", "zihpm";
++					       "zifencei", "zihpm", "xtheadvector";
++			thead,vlenb = <16>;
+ 			#cooling-cells = <2>;
+ 
+ 			cpu0_intc: interrupt-controller {
+
+From patchwork Wed Aug  7 00:31:40 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755556
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id 455B9C52D7B
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:31:59 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=YOyyBoohQ1qliCw8lg7cl2eEpDAWnOXUTvwkAT0+mlg=; b=10unpAlsez7KA/
+	aLxXbiRf1mf9hbVdRiYargGxUV+V3WkRnJBhwKtARZDkX5O5MkxwsUTjyv1GzA/aFC7KOM1qRVhZq
+	y5YGGch7onw8vVigXK4GnqjOL2Pb+WJToKmGUw6+LTrB171hz/aEVsMXRy0nvIechFB1+f9kebOQU
+	LUowpiAAqo6ZnqX9dlcZlxb5xOFL2x0me+DmtuPqkgAVzVJJG7ysrVChegW4dIoHZ6z0tQaYC82xV
+	8VviZ60vt/PvedWqBstVDDYmrmt3t3XnZZpVRIdwsmbXQTzHWb4R2ElkE79hQrh2GcH1/HOiwBV/i
+	Tz0EtJPOi6cFXrx9CgPw==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUaq-00000003QqC-3A39;
+	Wed, 07 Aug 2024 00:31:56 +0000
+Received: from mail-il1-x12e.google.com ([2607:f8b0:4864:20::12e])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUan-00000003QnP-21yq
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:31:55 +0000
+Received: by mail-il1-x12e.google.com with SMTP id
+ e9e14a558f8ab-396675b83afso5294665ab.0
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:31:53 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990712;
+ x=1723595512; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=viUMUU3u3LkA8a3hOJ7VlIwEHpNEEIfLA3woGK8oJNk=;
+        b=x5EpBz/EaUJgHj0GWYv3bamVpvRXOXYDPQzayM4+CUvuOaIZTHcRarTnlU6bKKeYxH
+         KSd75wQwMJaviBJ9e7LEI1K1UP5CylTt203XhngovFeRbDMiSbqhD0wHYeU19rGuGq2k
+         gIXuuc/2UKQOobodTd0ANFwdLre29mlSip5/xdJd6nOtydPYxKxziSsRPyp9O1rbPMsm
+         1I7wnuZjBL4mRzEb/XfeKMP5ezCDeTon8nvvUImqFFnR9FCHjIg3eaSDGSLxhCmSmns8
+         Qsa9wnWN1jOGXhro/x1gCCh8XPBRVZuyjSRCY/4k/jOXrLnMpUGwqnsuvKj+FgeKhpG1
+         gFpw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990712; x=1723595512;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=viUMUU3u3LkA8a3hOJ7VlIwEHpNEEIfLA3woGK8oJNk=;
+        b=WXhuHb+8omw/0lPDjpkklTQir4LJs6/UKDlvaJDnHt0a4/WKh03GYYuwI6+VNaUj12
+         iwWnoISo7kPCmX1y1YbVfkfr+rNQ2+Qf59mk8FY2ZtbEkdtpYuTNrA6v0oQaIFmVgl62
+         n4wyQl+LQCu3aEbhY35evJLXtsXgefD+y8SrWfYazrk37uWqm2d8U9K+Vm9uJzK183Xc
+         tCtrtXvEEcbu8z8qzurXwTllnf/zP+DB6GodJ/WpZBPv1hxOffb+ObjL31z7AvJD/F2d
+         gJCQ3IXM8S5eVQ7RQKgSmYzb2JwH98LgtyZysGfhzAo/pA2lmNgcQYjpC7Fhu95YN1Zx
+         SGnA==
+X-Gm-Message-State: AOJu0Yw2pvA/Ia3dT1MEz4tLHXNJbwcFojUCWnLP3IsNiuJOYZhF7r/i
+	bMVkO57Pf4/cqPhQdXbvzoEkCte9DQKqrS5opPDkFBU49dVdfNPV00Ada6227/A=
+X-Google-Smtp-Source: 
+ AGHT+IF2m8Rrj9JazY+Cmk/iyjQCoqTlGNfdAJyc4EEWn2v8Aompmh9aDhgAOPwPtiByftUm7UfRBQ==
+X-Received: by 2002:a92:c7d3:0:b0:39b:330e:11dd with SMTP id
+ e9e14a558f8ab-39b330e18a5mr122680395ab.10.1722990712346;
+        Tue, 06 Aug 2024 17:31:52 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.31.50
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:31:51 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:40 -0700
+Subject: [PATCH v9 04/13] riscv: Add thead and xtheadvector as a vendor
+ extension
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-4-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>,
+ Conor Dooley <conor.dooley@microchip.com>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=5060;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=7SdRVAdBMHX6BLgD+XlbPRIw5BjYE7igOjwZllEvap0=;
+ b=q7tZ1QL+3BIgMp8bEfLua+A7DTPR9Cag6IR8LRROfrYFkPjYa15GeScFpDUsqhQPI91zO1+gP
+ 0DSoMasyUKoCd/CBP+eQSZU43LSCDFjNPkFnN41r0oKfxlbC+HQYHal
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173153_613811_BBE1C2E2 
+X-CRM114-Status: GOOD (  16.34  )
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+Add support to the kernel for THead vendor extensions with the target of
+the new extension xtheadvector.
+
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+Reviewed-by: Conor Dooley <conor.dooley@microchip.com>
+---
+ arch/riscv/Kconfig.vendor                        | 13 +++++++++++++
+ arch/riscv/include/asm/vendor_extensions/thead.h | 16 ++++++++++++++++
+ arch/riscv/kernel/cpufeature.c                   |  1 +
+ arch/riscv/kernel/vendor_extensions.c            | 10 ++++++++++
+ arch/riscv/kernel/vendor_extensions/Makefile     |  1 +
+ arch/riscv/kernel/vendor_extensions/thead.c      | 18 ++++++++++++++++++
+ 6 files changed, 59 insertions(+)
+
+diff --git a/arch/riscv/Kconfig.vendor b/arch/riscv/Kconfig.vendor
+index 6f1cdd32ed29..9897442bd44f 100644
+--- a/arch/riscv/Kconfig.vendor
++++ b/arch/riscv/Kconfig.vendor
+@@ -16,4 +16,17 @@ config RISCV_ISA_VENDOR_EXT_ANDES
+ 	  If you don't know what to do here, say Y.
+ endmenu
+ 
++menu "T-Head"
++config RISCV_ISA_VENDOR_EXT_THEAD
++	bool "T-Head vendor extension support"
++	select RISCV_ISA_VENDOR_EXT
++	default y
++	help
++	  Say N here to disable detection of and support for all T-Head vendor
++	  extensions. Without this option enabled, T-Head vendor extensions will
++	  not be detected at boot and their presence not reported to userspace.
++
++	  If you don't know what to do here, say Y.
++endmenu
++
+ endmenu
+diff --git a/arch/riscv/include/asm/vendor_extensions/thead.h b/arch/riscv/include/asm/vendor_extensions/thead.h
+new file mode 100644
+index 000000000000..48421d1553ad
+--- /dev/null
++++ b/arch/riscv/include/asm/vendor_extensions/thead.h
+@@ -0,0 +1,16 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_H
++#define _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_H
++
++#include <asm/vendor_extensions.h>
++
++#include <linux/types.h>
++
++/*
++ * Extension keys must be strictly less than RISCV_ISA_VENDOR_EXT_MAX.
++ */
++#define RISCV_ISA_VENDOR_EXT_XTHEADVECTOR		0
++
++extern struct riscv_isa_vendor_ext_data_list riscv_isa_vendor_ext_list_thead;
++
++#endif
+diff --git a/arch/riscv/kernel/cpufeature.c b/arch/riscv/kernel/cpufeature.c
+index 8f20607adb40..46e69b9d66a7 100644
+--- a/arch/riscv/kernel/cpufeature.c
++++ b/arch/riscv/kernel/cpufeature.c
+@@ -25,6 +25,7 @@
+ #include <asm/sbi.h>
+ #include <asm/vector.h>
+ #include <asm/vendor_extensions.h>
++#include <asm/vendor_extensions/thead.h>
+ 
+ #define NUM_ALPHA_EXTS ('z' - 'a' + 1)
+ 
+diff --git a/arch/riscv/kernel/vendor_extensions.c b/arch/riscv/kernel/vendor_extensions.c
+index b6c1e7b5d34b..662ba64a8f93 100644
+--- a/arch/riscv/kernel/vendor_extensions.c
++++ b/arch/riscv/kernel/vendor_extensions.c
+@@ -6,6 +6,7 @@
+ #include <asm/vendorid_list.h>
+ #include <asm/vendor_extensions.h>
+ #include <asm/vendor_extensions/andes.h>
++#include <asm/vendor_extensions/thead.h>
+ 
+ #include <linux/array_size.h>
+ #include <linux/types.h>
+@@ -14,6 +15,9 @@ struct riscv_isa_vendor_ext_data_list *riscv_isa_vendor_ext_list[] = {
+ #ifdef CONFIG_RISCV_ISA_VENDOR_EXT_ANDES
+ 	&riscv_isa_vendor_ext_list_andes,
+ #endif
++#ifdef CONFIG_RISCV_ISA_VENDOR_EXT_THEAD
++	&riscv_isa_vendor_ext_list_thead,
++#endif
+ };
+ 
+ const size_t riscv_isa_vendor_ext_list_size = ARRAY_SIZE(riscv_isa_vendor_ext_list);
+@@ -41,6 +45,12 @@ bool __riscv_isa_vendor_extension_available(int cpu, unsigned long vendor, unsig
+ 		cpu_bmap = &riscv_isa_vendor_ext_list_andes.per_hart_isa_bitmap[cpu];
+ 		break;
+ 	#endif
++	#ifdef CONFIG_RISCV_ISA_VENDOR_EXT_THEAD
++	case THEAD_VENDOR_ID:
++		bmap = &riscv_isa_vendor_ext_list_thead.all_harts_isa_bitmap;
++		cpu_bmap = &riscv_isa_vendor_ext_list_thead.per_hart_isa_bitmap[cpu];
++		break;
++	#endif
+ 	default:
+ 		return false;
+ 	}
+diff --git a/arch/riscv/kernel/vendor_extensions/Makefile b/arch/riscv/kernel/vendor_extensions/Makefile
+index 6a61aed944f1..353522cb3bf0 100644
+--- a/arch/riscv/kernel/vendor_extensions/Makefile
++++ b/arch/riscv/kernel/vendor_extensions/Makefile
+@@ -1,3 +1,4 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ 
+ obj-$(CONFIG_RISCV_ISA_VENDOR_EXT_ANDES)	+= andes.o
++obj-$(CONFIG_RISCV_ISA_VENDOR_EXT_THEAD)	+= thead.o
+diff --git a/arch/riscv/kernel/vendor_extensions/thead.c b/arch/riscv/kernel/vendor_extensions/thead.c
+new file mode 100644
+index 000000000000..0f27baf8d245
+--- /dev/null
++++ b/arch/riscv/kernel/vendor_extensions/thead.c
+@@ -0,0 +1,18 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include <asm/cpufeature.h>
++#include <asm/vendor_extensions.h>
++#include <asm/vendor_extensions/thead.h>
++
++#include <linux/array_size.h>
++#include <linux/types.h>
++
++/* All T-Head vendor extensions supported in Linux */
++static const struct riscv_isa_ext_data riscv_isa_vendor_ext_thead[] = {
++	__RISCV_ISA_EXT_DATA(xtheadvector, RISCV_ISA_VENDOR_EXT_XTHEADVECTOR),
++};
++
++struct riscv_isa_vendor_ext_data_list riscv_isa_vendor_ext_list_thead = {
++	.ext_data_count = ARRAY_SIZE(riscv_isa_vendor_ext_thead),
++	.ext_data = riscv_isa_vendor_ext_thead,
++};
+
+From patchwork Wed Aug  7 00:31:41 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755555
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id CE367C52D7D
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:32:00 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=PCRUmgchfdPnJedU6IjGKhANmIRdHMYU3T0OMNykJIw=; b=C1zPjQctQ9dWUw
+	w+9JgBWT6J6I3JzNvs+I7ZHisM0TgBLlVXmaN4T0rMzS3GCSVS0kjxLlh4+F7ZtIo98m+J38wnzo4
+	NuZVEYVit6z+zYeVtomQ5vhQmj4dfJ2orN+NN07HPzQtedFLwrqaKGJjLfYa4nME5X2mTJHHAuEc8
+	oxPamDz+nWvJVZUPvUOepRkh4R3XVRyzUZ2KqseCrjlwMxWymLlS1DSbAtEAoh7BmD17MHU0qwPUT
+	BCrM60BaES63THmqv6FZ92lEkoX/eBTVT8Nt6oBmOX/O7s2K5VRan3oOBHoi13sn40/klDIZ0PFqM
+	vt8ku++oqd/VaiZus4hg==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUar-00000003QrO-21X7;
+	Wed, 07 Aug 2024 00:31:57 +0000
+Received: from mail-il1-x131.google.com ([2607:f8b0:4864:20::131])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUap-00000003QoW-1UY2
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:31:56 +0000
+Received: by mail-il1-x131.google.com with SMTP id
+ e9e14a558f8ab-39b3e12754eso4684695ab.1
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:31:55 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990714;
+ x=1723595514; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=UDXix9g97EA4GCmHUvLp+uhBYnZpdwXOx0HKNlsa5xg=;
+        b=r19L+Qbb23Aanx/Q2vpLJMqV4GOoOKvV8DVc7LwDPRrGI3O8neskjDKo3E/JTJysdI
+         iOSzBI6LfAPvj0hW7GCwzSFaUMtB011LLCKr0DR+YMsux8UvkJ+RfSSMKXeL2wa6IX56
+         xFN0zodWBwOkfcL7gmUgYz9WVfdH85if55hQjqng9zNgcjZCkawUp5KGZxAV5VSs8295
+         SjQUYndLP2aqUJv90XtyeY+WZ8d9ylXuGNr4/PXLmVY6WwXtjKhFL2xroFDFzd9+EBqa
+         fQ5f1H6G47ejIGGD5R7wu7+wNvOLFJ4SzszkF9ILvhVSd7FCiG7YQaRpnYKMY5mlWgvz
+         SWow==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990714; x=1723595514;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=UDXix9g97EA4GCmHUvLp+uhBYnZpdwXOx0HKNlsa5xg=;
+        b=HYdmseC4aI+hQwQ0WtKrR292oUXOMTzDjCfv4Fm3QOEbZ/uzi2WTPr/UOTbw/xhS1Z
+         wY22+SvC8ufJWcShv9b4hQ+Vt1sTiP08I8Po8QyrA+/ORgWVWVr0b77UAnuOYFP5acR/
+         xAL9uMucHGViFMLqeP4BIwTbrHZEhGt75Ou2nyRtCVJAw0sAuf1z8dl3unaXSx7UYfy5
+         uRKnQ4+4X5eUy6EJyhLgwsqnBsCwTA6kRsHQWKbZ8PtGASVbTIAajzgIHJ0PtgYBVPi3
+         CqfxPF8n6m59fgyfjuXwrWoFV7zES6Rqm6/lsfYUkgkScfZlqy5nplpWyzkiSWpoV2wP
+         10vg==
+X-Gm-Message-State: AOJu0YysEXUM3wbk+PKwQJgMNlep4QGDBvWD83f9OOzVXS8s2ufLwMAu
+	vsoDIujNmWd0ar+3Bh+ZFolHHKU7ISGjNYQuvjCItgf6e9BNa+C5xvWoOpgC7Xs=
+X-Google-Smtp-Source: 
+ AGHT+IGEkkXvznboO5jjjJ9Pj1BcuALKcoojP+qylKzMCoFQwUbBF2qBM9A6bnsuhEPl3d9adNvkSw==
+X-Received: by 2002:a92:d38d:0:b0:375:9ff9:7cf4 with SMTP id
+ e9e14a558f8ab-39b1fb78dffmr149733175ab.4.1722990714515;
+        Tue, 06 Aug 2024 17:31:54 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.31.52
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:31:53 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:41 -0700
+Subject: [PATCH v9 05/13] riscv: vector: Use vlenb from DT for thead
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-5-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>,
+ Conor Dooley <conor.dooley@microchip.com>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=4541;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=msFD4aQty49TjaDImr8sroRAErQrw6JeYwemxJ7PjT4=;
+ b=9zcJcnbeBT4L/clG58BE2QhoXpwa7vz/gjd4PKXJbsImLQnjgwYY4Fg2nMSCMmSrTkI0KH2R8
+ u9zaZl2vA+tCc2ogbwXdUaH5YPHyLaxw91maD2lRFJROYOBl9gFvR1v
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173155_432971_17F56D32 
+X-CRM114-Status: GOOD (  20.45  )
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+If thead,vlenb is provided in the device tree, prefer that over reading
+the vlenb csr.
+
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+Acked-by: Conor Dooley <conor.dooley@microchip.com>
+---
+ arch/riscv/Kconfig.vendor           | 13 ++++++++++
+ arch/riscv/include/asm/cpufeature.h |  2 ++
+ arch/riscv/kernel/cpufeature.c      | 48 +++++++++++++++++++++++++++++++++++++
+ arch/riscv/kernel/vector.c          | 12 +++++++++-
+ 4 files changed, 74 insertions(+), 1 deletion(-)
+
+diff --git a/arch/riscv/Kconfig.vendor b/arch/riscv/Kconfig.vendor
+index 9897442bd44f..b096548fe0ff 100644
+--- a/arch/riscv/Kconfig.vendor
++++ b/arch/riscv/Kconfig.vendor
+@@ -26,6 +26,19 @@ config RISCV_ISA_VENDOR_EXT_THEAD
+ 	  extensions. Without this option enabled, T-Head vendor extensions will
+ 	  not be detected at boot and their presence not reported to userspace.
+ 
++	  If you don't know what to do here, say Y.
++
++config RISCV_ISA_XTHEADVECTOR
++	bool "xtheadvector extension support"
++	depends on RISCV_ISA_VENDOR_EXT_THEAD
++	depends on RISCV_ISA_V
++	depends on FPU
++	default y
++	help
++	  Say N here if you want to disable all xtheadvector related procedures
++	  in the kernel. This will disable vector for any T-Head board that
++	  contains xtheadvector rather than the standard vector.
++
+ 	  If you don't know what to do here, say Y.
+ endmenu
+ 
+diff --git a/arch/riscv/include/asm/cpufeature.h b/arch/riscv/include/asm/cpufeature.h
+index 45f9c1171a48..28bdeb1005e0 100644
+--- a/arch/riscv/include/asm/cpufeature.h
++++ b/arch/riscv/include/asm/cpufeature.h
+@@ -31,6 +31,8 @@ DECLARE_PER_CPU(struct riscv_cpuinfo, riscv_cpuinfo);
+ /* Per-cpu ISA extensions. */
+ extern struct riscv_isainfo hart_isa[NR_CPUS];
+ 
++extern u32 thead_vlenb_of;
++
+ void riscv_user_isa_enable(void);
+ 
+ #define _RISCV_ISA_EXT_DATA(_name, _id, _subset_exts, _subset_exts_size, _validate) {	\
+diff --git a/arch/riscv/kernel/cpufeature.c b/arch/riscv/kernel/cpufeature.c
+index 46e69b9d66a7..477375e5edb0 100644
+--- a/arch/riscv/kernel/cpufeature.c
++++ b/arch/riscv/kernel/cpufeature.c
+@@ -37,6 +37,8 @@ static DECLARE_BITMAP(riscv_isa, RISCV_ISA_EXT_MAX) __read_mostly;
+ /* Per-cpu ISA extensions. */
+ struct riscv_isainfo hart_isa[NR_CPUS];
+ 
++u32 thead_vlenb_of;
++
+ /**
+  * riscv_isa_extension_base() - Get base extension word
+  *
+@@ -772,6 +774,46 @@ static void __init riscv_fill_vendor_ext_list(int cpu)
+ 	}
+ }
+ 
++static int has_thead_homogeneous_vlenb(void)
++{
++	int cpu;
++	u32 prev_vlenb = 0;
++	u32 vlenb;
++
++	/* Ignore thead,vlenb property if xtheavector is not enabled in the kernel */
++	if (!IS_ENABLED(CONFIG_RISCV_ISA_XTHEADVECTOR))
++		return 0;
++
++	for_each_possible_cpu(cpu) {
++		struct device_node *cpu_node;
++
++		cpu_node = of_cpu_device_node_get(cpu);
++		if (!cpu_node) {
++			pr_warn("Unable to find cpu node\n");
++			return -ENOENT;
++		}
++
++		if (of_property_read_u32(cpu_node, "thead,vlenb", &vlenb)) {
++			of_node_put(cpu_node);
++
++			if (prev_vlenb)
++				return -ENOENT;
++			continue;
++		}
++
++		if (prev_vlenb && vlenb != prev_vlenb) {
++			of_node_put(cpu_node);
++			return -ENOENT;
++		}
++
++		prev_vlenb = vlenb;
++		of_node_put(cpu_node);
++	}
++
++	thead_vlenb_of = vlenb;
++	return 0;
++}
++
+ static int __init riscv_fill_hwcap_from_ext_list(unsigned long *isa2hwcap)
+ {
+ 	unsigned int cpu;
+@@ -825,6 +867,12 @@ static int __init riscv_fill_hwcap_from_ext_list(unsigned long *isa2hwcap)
+ 		riscv_fill_vendor_ext_list(cpu);
+ 	}
+ 
++	if (riscv_isa_vendor_extension_available(THEAD_VENDOR_ID, XTHEADVECTOR) &&
++	    has_thead_homogeneous_vlenb() < 0) {
++		pr_warn("Unsupported heterogeneous vlenb detected, vector extension disabled.\n");
++		elf_hwcap &= ~COMPAT_HWCAP_ISA_V;
++	}
++
+ 	if (bitmap_empty(riscv_isa, RISCV_ISA_EXT_MAX))
+ 		return -ENOENT;
+ 
+diff --git a/arch/riscv/kernel/vector.c b/arch/riscv/kernel/vector.c
+index 682b3feee451..9775d6a9c8ee 100644
+--- a/arch/riscv/kernel/vector.c
++++ b/arch/riscv/kernel/vector.c
+@@ -33,7 +33,17 @@ int riscv_v_setup_vsize(void)
+ {
+ 	unsigned long this_vsize;
+ 
+-	/* There are 32 vector registers with vlenb length. */
++	/*
++	 * There are 32 vector registers with vlenb length.
++	 *
++	 * If the thead,vlenb property was provided by the firmware, use that
++	 * instead of probing the CSRs.
++	 */
++	if (thead_vlenb_of) {
++		riscv_v_vsize = thead_vlenb_of * 32;
++		return 0;
++	}
++
+ 	riscv_v_enable();
+ 	this_vsize = csr_read(CSR_VLENB) * 32;
+ 	riscv_v_disable();
+
+From patchwork Wed Aug  7 00:31:42 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755558
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id 1B7A6C52D7B
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:32:05 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=7TevFGdTDFJ1MbftTCXAmnfntNhBDr8S4L5Pvz2FPyA=; b=wP3kRWOMAKveyU
+	/gw2QbsMnpHWj4ROFojMOMTH+QSY4VW2gfeAdeZImUwQ1hd7/i4N3SUUqELIl1Y1Mv8lhzSq3cqAT
+	7K+QqKmazSvIpx8uaJyRvZ1RqcfTfi+5W0cX1fN6LLnApjXvXdJgYnSRQI8sgWRO8r5CqBSMfWcDA
+	vw05Svpuk+y0+6dxvBSna3kueskt6XqjooE0bw7YOpbYm248HvrBbH72qOIIZ4UzcQZHhDjiqCD53
+	lBigA7H+4POCBOwJk83EiG8udCavA/qKqvXi1qQ0I3Ci6FLii1R8EGp52YxmY612d5vFCxoOLio5H
+	cT8Zqg2TBR6Zw/IIzPAw==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUav-00000003Qu4-1pTN;
+	Wed, 07 Aug 2024 00:32:01 +0000
+Received: from mail-oi1-x22f.google.com ([2607:f8b0:4864:20::22f])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUar-00000003QrJ-44aG
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:31:59 +0000
+Received: by mail-oi1-x22f.google.com with SMTP id
+ 5614622812f47-3dab336717fso768172b6e.0
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:31:57 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990717;
+ x=1723595517; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=QC5zCLZI62pAjh3MZXl2DmzWweDYeenNtUhW+BVEweY=;
+        b=jPMXZJJnxDSUeGd3O42WRwNgJJHsJdrXqRAnodDgBix4JyYhvnQX6lUg12kP4qSsgU
+         jyv4aLy7+OJklvCjpZHdjbCQkIMcs1dMqDBIJMuec510tDNVCPsjpE7fZXkZLaszgdhp
+         CaCT9LmKCfOXZuu3TEIwyMY+Og4GI5PlHGCJo1JDc2fe73IWlur/PtdKqUkQhSM/bJVW
+         FS92tYYUswJBIuNx0oQAC+gjQfDW+tuiuxorlHPtLVjXCikqSot+MUib93/Rux1DEbbs
+         2hrEizLkbU87payCoK7VQjezrOy+Vsr0VI1P9zcxkipWDYV2EFzHmU+QIaeHAhLIkMxp
+         c1Tg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990717; x=1723595517;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=QC5zCLZI62pAjh3MZXl2DmzWweDYeenNtUhW+BVEweY=;
+        b=qlo0X946RozDo91SxjYd8rvn3/TKcUEPn+2Y6DZ4t5R6xeacXuGdl6RgATPoh3DA7t
+         BPdJ8ZMTSGG/O2G+yxqoWGMdiAYjjhUPz5jJ5XRiRQZjOIK3jXvtSYgka0u3r1uj/0P2
+         VFshgDeAPi7lzjJzrrXzJlC3hZtoxrGzi9UMi83K7NVhwX9X4T+Fb7wCZ/735nD/T4uT
+         rfVJkPSJuxeH2bPtD7B+4mrGIt8ibDL4Gz3H0C81uRNQATOnxJJKInZEDalGWCJP4bnm
+         8Tno20ERPPr5kCOlsnRDquf/xFDtiEBCLxWUdyuOLhINQ7MhoIKEgedLJVWmVeY+Cs1k
+         EUdQ==
+X-Gm-Message-State: AOJu0YyGkN1IRjk+NLAswkk00yUoPjMIqgUCdyyiaj76aMx9MSDNt4tL
+	yFtMpq5KxCq+JoN8JswUDga7PF65pL90CZgjvt3BPb1OrOX9bkSY8NXNLLOe53Q=
+X-Google-Smtp-Source: 
+ AGHT+IEomO2rWS8N04dkJc59Kgkws+mWDwLUt7ddjCqe47b0HovPqN/7PDFgjz5yTN0u2e47G0ibbQ==
+X-Received: by 2002:a05:6808:d48:b0:3da:e246:36f9 with SMTP id
+ 5614622812f47-3db558310d3mr21688532b6e.31.1722990716821;
+        Tue, 06 Aug 2024 17:31:56 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.31.54
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:31:56 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:42 -0700
+Subject: [PATCH v9 06/13] RISC-V: define the elements of the VCSR vector
+ CSR
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-6-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>, Heiko Stuebner <heiko@sntech.de>,
+ Conor Dooley <conor.dooley@microchip.com>, Heiko Stuebner <heiko@sntech.de>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=930;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=DIdTxrF0tPCTSVf2TD2d8xS0VDMxpxf73XTxU8DNXFU=;
+ b=tCigg/1A4l8IsEtr1/y9NTwTRU5XH+2Tl9Svmx0pkqdzZuPXykgTqvIzRfkbgnNWcTMSLRxxz
+ q60DgQzkkPUAT9JnB8p+nZJ8SdgxaBb3cQ8syWdxfgoAzaldKwS912B
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173158_055056_B1263E67 
+X-CRM114-Status: UNSURE (   8.66  )
+X-CRM114-Notice: Please train this message.
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+From: Heiko Stuebner <heiko@sntech.de>
+
+The VCSR CSR contains two elements VXRM[2:1] and VXSAT[0].
+
+Define constants for those to access the elements in a readable way.
+
+Acked-by: Guo Ren <guoren@kernel.org>
+Reviewed-by: Conor Dooley <conor.dooley@microchip.com>
+Signed-off-by: Heiko Stuebner <heiko.stuebner@vrull.eu>
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+---
+ arch/riscv/include/asm/csr.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/riscv/include/asm/csr.h b/arch/riscv/include/asm/csr.h
+index 25966995da04..3eeb07d73065 100644
+--- a/arch/riscv/include/asm/csr.h
++++ b/arch/riscv/include/asm/csr.h
+@@ -300,6 +300,10 @@
+ #define CSR_STIMECMP		0x14D
+ #define CSR_STIMECMPH		0x15D
+ 
++#define VCSR_VXRM_MASK			3
++#define VCSR_VXRM_SHIFT			1
++#define VCSR_VXSAT_MASK			1
++
+ /* Supervisor-Level Window to Indirectly Accessed Registers (AIA) */
+ #define CSR_SISELECT		0x150
+ #define CSR_SIREG		0x151
+
+From patchwork Wed Aug  7 00:31:43 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755559
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id AAC7CC52D6F
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:32:06 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=QDwHR26Vp3Qj0oIbbERNnQrQ9hF+kq5Wrx6oTXmyRJw=; b=Ay+eD8YImx84Zq
+	LQ48n+4UwevB1LR1TBFy7Z/DvFmRX0gXPq9Pdxk0ZfiBxRD3eBVulm9Yh1PxjgphC4XXH7yjlh2TV
+	9hU6LkJtvQEP72BldmSvE5bShuv8a4l3+ODCRyN9zWf/tRR2ilYmjWWnelTkHpiaJCIc3UCB+Omvx
+	rZf5eF6+WNffCsPY9Lzq9UCU7egLPTzT27JijGLHaNRqajGLnGJo/dsg61pHm18NTu/Lm+Sd0XyxH
+	ROLqPIp51u+DHwO0AaDCCAohf/3lDjbsOrUHA1H7l9ni9w6jYgbqX8RFF65xRQKGUNkcwkqsOpTMN
+	VNwE6NjSnZ4xat9sWnEw==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUax-00000003Qwc-33FU;
+	Wed, 07 Aug 2024 00:32:03 +0000
+Received: from mail-oa1-x2a.google.com ([2001:4860:4864:20::2a])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUau-00000003Qsx-2Qi9
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:32:02 +0000
+Received: by mail-oa1-x2a.google.com with SMTP id
+ 586e51a60fabf-268eec6c7c1so786256fac.3
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:32:00 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990719;
+ x=1723595519; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=I6vSC44jl4CdBSHHJd2q6Sf8U8Y24j++yUJmo2Jtjkw=;
+        b=fruJNh86PndtcCQ9KUQRRb2C6jM1kcd/Y3+GKwkwJmbpURmXTtcC9A+ybeFDKtlhSe
+         Pp2CgeYHCNwrthywFIO3im20iL6GjeFSQeDEwaKNMHIT5B7rLscvo+KL0A7QMDnfXIKU
+         1YrAKW8iPrc6Uh302I/CNkoQjzUiynBLjceVGuRFsiw1a5auIhPF7JcvDa3y0jecl11F
+         hNaUmhza5ptyqZzRWwEJhLSGQURSoB8QmawKaSTDlg80mjQxPajKDg2unlPmvDRkZeEf
+         QE6Gen2Kz19iDc9JCby8+LSEdtphNFu5EfeiCA3umHvRTNOdXEEmnPWidZa3zlzMDZuA
+         Bp7A==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990719; x=1723595519;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=I6vSC44jl4CdBSHHJd2q6Sf8U8Y24j++yUJmo2Jtjkw=;
+        b=cNZy0b62pRnHx7SM1TZtOxoCVmD0EzawALYhvJuLjliqzYwdzCvqQz21Ol15n3PEy4
+         LkzgOIA+SQ+QykkWxWdXKNwFR47McQm91pM2ka2Jt37WT+Vo63UUjsx5YGq7I1PhvhX+
+         drbMKJa7RrfnkWuaZWgvFgo00VjZX0u/aiUEj/F5MWAgnTcysIsaNb/v0cxzygD4FUkh
+         TKVS7Dn3p2knnZVv+NwuQCyG2+ZhW1RcnO7jNCWDgtTwissQShGBdUfTEcq1dr/C8L2a
+         o+0BpMQGRzMS+V/ieIS2EC3CoB13DkfblqL9KDPoKGRk7Py1XwBo5ScCDWuSG3XkQkbD
+         eddw==
+X-Gm-Message-State: AOJu0YwqJS1YoB5rnWU8/wFgweWfyDYtJcXSBPvF9rVqBSChwRcFQ/Hi
+	FhUU3eGqhSbgnGoAv2stl9EJ8PkqhePk6aXCqys5A/OrQqZb6JrzKek8qTza0FU=
+X-Google-Smtp-Source: 
+ AGHT+IFnj3kIuRll1qVruAYZ27yJp57qLFZHBjlVTk6x/guLrFPnuVwAodBd5IFbDfmkbBhevIxCJQ==
+X-Received: by 2002:a05:6871:5b2a:b0:254:8666:cded with SMTP id
+ 586e51a60fabf-26891d3b2acmr19881342fac.11.1722990719025;
+        Tue, 06 Aug 2024 17:31:59 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.31.57
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:31:58 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:43 -0700
+Subject: [PATCH v9 07/13] riscv: csr: Add CSR encodings for
+ CSR_VXRM/CSR_VXSAT
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-7-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>, Heiko Stuebner <heiko@sntech.de>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=1045;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=M4fQyJxhZ7NtPnQCPQfoncg1fbWtYe6qmsOGHrd6z/g=;
+ b=iKtL+WyQGLyitjyGHlYu61BfGzlSRVUxwmNxH+dUMij5Yc/9iOxYeYmj/uiQ8K8XXvkTGyPSs
+ /HJjj73aZMBArTPioQCOvQvyG6MSxbyqfoWVpmBWkjzkt1irCHP5J83
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173200_714616_95E507FD 
+X-CRM114-Status: UNSURE (   8.84  )
+X-CRM114-Notice: Please train this message.
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+The VXRM vector csr for xtheadvector has an encoding of 0xa and VXSAT
+has an encoding of 0x9.
+
+Co-developed-by: Heiko Stuebner <heiko@sntech.de>
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+---
+ arch/riscv/include/asm/csr.h | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/arch/riscv/include/asm/csr.h b/arch/riscv/include/asm/csr.h
+index 3eeb07d73065..c0a60c4ed911 100644
+--- a/arch/riscv/include/asm/csr.h
++++ b/arch/riscv/include/asm/csr.h
+@@ -300,9 +300,14 @@
+ #define CSR_STIMECMP		0x14D
+ #define CSR_STIMECMPH		0x15D
+ 
+-#define VCSR_VXRM_MASK			3
+-#define VCSR_VXRM_SHIFT			1
+-#define VCSR_VXSAT_MASK			1
++/* xtheadvector symbolic CSR names */
++#define CSR_VXSAT		0x9
++#define CSR_VXRM		0xa
++
++/* xtheadvector CSR masks */
++#define CSR_VXRM_MASK		3
++#define CSR_VXRM_SHIFT		1
++#define CSR_VXSAT_MASK		1
+ 
+ /* Supervisor-Level Window to Indirectly Accessed Registers (AIA) */
+ #define CSR_SISELECT		0x150
+
+From patchwork Wed Aug  7 00:31:44 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755560
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id 6F8FDC49EA1
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:32:09 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=kJQ4Ns9KIsLNeu1+QxKaGD+Cu1ujosMsvtMsTWF8fGE=; b=MeEPwvDZevmNDK
+	lnx9dSkXtkQc/9dXcfYHn8czfy0M1NIhSPRzo+HX0Pi777XMV0UrMCDxQZ4Mio+6Sb4j8fYyFl3i6
+	FWQ7I+HNZe+CGkX1kmXh/GmfLiBV900OBnR7W74Xxo6AQxc6K+cod3OpBCiqgaD1KEhv7LAsfRe5A
+	8Z4jcWj8wQrOsYH++FdqLb6UA5u41yUDqa1208YeLz6J0lewrOAIohWLt1uurwq+ZX/GRsbY79T40
+	4fZ4yYHaK2GdxXTJsZ6ijbSP1CuW2GKtmcENPF0/X+I8zQJWR9W59bPYJQ9QLb6dmOyHzlOST3Pqx
+	PI82B7Ia/2DUVjXoEDoQ==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUb0-00000003Qyd-0t3q;
+	Wed, 07 Aug 2024 00:32:06 +0000
+Received: from mail-pg1-x536.google.com ([2607:f8b0:4864:20::536])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUaw-00000003QuE-15qi
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:32:04 +0000
+Received: by mail-pg1-x536.google.com with SMTP id
+ 41be03b00d2f7-7bcf8077742so1044522a12.0
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:32:01 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990721;
+ x=1723595521; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=ddYLMqUvR1v7jAyy15+CCV5KH3Z2YWZvIvlhQOaZJPA=;
+        b=kvo+B9Pf/1DVLdLMwQAlyzyTXQlLgsJijtjScuORHOJzUCRXt1RiQ+QLuogeEpgShy
+         rxYjftQE1l6452K5P/bXCF8QcU2Bq/445pRgFroX7uLKrmbK34JwLzTsWV8HaKn1fXhk
+         LxBOf49Q862kMbkzT6usJugjyCfaCyjLejrTfstoducTGgWEhbn0fjTVGrMtlbnQXpTV
+         mMWWY3fnkrQ9WQGLfKz355FipnQ2Xtc9L6cNct6FTPkd2kPx5jyzNzzzrs6hZcQ+kib3
+         sne+YRNLYysIGVrtLffekxBV5RPSmyiUUilZhMZ5RK4GKn7TzYRPJP0G/yoSdEvFskys
+         DTJg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990721; x=1723595521;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=ddYLMqUvR1v7jAyy15+CCV5KH3Z2YWZvIvlhQOaZJPA=;
+        b=mYBzEgcamO96WYnmy+hqPKK7H4dOacv986T+jeFLrZqG0SedrOMyODD0hUV5K27YGJ
+         TIo0baEfFyh8tQmOHbhnM9dTTqioWLv4lYhq3M9s1YK3xVMDoIfdHI+lAk+F3KuP/dEk
+         MSGr1owkBvEpCbj+O1hA1Qo+c+JQ+07qrfOKoipaxUvmsxbAvGXIo3kDmIwJdqMhO4nK
+         Xp7jSutvMtlLruSFaL43dYL8vZtLsHNhE1WNQKQq9hkW5IKN5P3/qp8ejgkEe3uIkIqP
+         sIuC+MbTwjK6ol5wRglh2eBq01C47zDcbd+nP8y90tLzg6RFOHNITXAOq4fJPQvG14w7
+         RUWg==
+X-Gm-Message-State: AOJu0YyILuECQmU7CqH1ePQjFTo975ey1vqpycTRg5U2xeEts7tENwZR
+	F6Slx1K6HevWA5+q8t7B7qtVZZPrnzklBCFxQQoIAXeHNs5mZlCBo4oA0w3QVOA=
+X-Google-Smtp-Source: 
+ AGHT+IFcZ/6e+JexEqLaDsXx8so7S9Gq3vPBi+pWGMkHMKIdQzh7eZkY9cBc0KFS263x4pFP+0JyhQ==
+X-Received: by 2002:a05:6a21:9cca:b0:1c0:f288:4903 with SMTP id
+ adf61e73a8af0-1c69958057emr19115871637.17.1722990721152;
+        Tue, 06 Aug 2024 17:32:01 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.31.59
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:32:00 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:44 -0700
+Subject: [PATCH v9 08/13] riscv: Add xtheadvector instruction definitions
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-8-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>, Heiko Stuebner <heiko@sntech.de>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=1957;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=oaYXOwBBOZMhEw+FYJXqumRUoO04QgRL8xTyrFp+Tyo=;
+ b=1zjZaYW5gRAYdgIYTbluAaWw/nIsdeZkRYKsa2xL1/d4MWG4VnUpHTBDn3uqN26brA/68QRiE
+ 220j5ajGW9CC+By3FOSeiRuINJN8/W35MrJyWQjh5LzY6J9hzj8fm0W
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173202_387170_EE17BF7E 
+X-CRM114-Status: GOOD (  10.45  )
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+xtheadvector uses different encodings than standard vector for
+vsetvli and vector loads/stores. Write the instruction formats to be
+used in assembly code.
+
+Co-developed-by: Heiko Stuebner <heiko@sntech.de>
+Signed-off-by: Heiko Stuebner <heiko@sntech.de>
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+---
+ arch/riscv/include/asm/vendor_extensions/thead.h | 26 ++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/arch/riscv/include/asm/vendor_extensions/thead.h b/arch/riscv/include/asm/vendor_extensions/thead.h
+index 48421d1553ad..27a253a20ab8 100644
+--- a/arch/riscv/include/asm/vendor_extensions/thead.h
++++ b/arch/riscv/include/asm/vendor_extensions/thead.h
+@@ -13,4 +13,30 @@
+ 
+ extern struct riscv_isa_vendor_ext_data_list riscv_isa_vendor_ext_list_thead;
+ 
++/* Extension specific helpers */
++
++/*
++ * Vector 0.7.1 as used for example on T-Head Xuantie cores, uses an older
++ * encoding for vsetvli (ta, ma vs. d1), so provide an instruction for
++ * vsetvli	t4, x0, e8, m8, d1
++ */
++#define THEAD_VSETVLI_T4X0E8M8D1	".long	0x00307ed7\n\t"
++#define THEAD_VSETVLI_X0X0E8M8D1	".long	0x00307057\n\t"
++
++/*
++ * While in theory, the vector-0.7.1 vsb.v and vlb.v result in the same
++ * encoding as the standard vse8.v and vle8.v, compilers seem to optimize
++ * the call resulting in a different encoding and then using a value for
++ * the "mop" field that is not part of vector-0.7.1
++ * So encode specific variants for vstate_save and _restore.
++ */
++#define THEAD_VSB_V_V0T0		".long	0x02028027\n\t"
++#define THEAD_VSB_V_V8T0		".long	0x02028427\n\t"
++#define THEAD_VSB_V_V16T0		".long	0x02028827\n\t"
++#define THEAD_VSB_V_V24T0		".long	0x02028c27\n\t"
++#define THEAD_VLB_V_V0T0		".long	0x012028007\n\t"
++#define THEAD_VLB_V_V8T0		".long	0x012028407\n\t"
++#define THEAD_VLB_V_V16T0		".long	0x012028807\n\t"
++#define THEAD_VLB_V_V24T0		".long	0x012028c07\n\t"
++
+ #endif
+
+From patchwork Wed Aug  7 00:31:45 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755562
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id 598C1C49EA1
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:32:19 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=uJRgdUuJAyHl0xtDXd5U8+CXQYjWTNYVPBQnH0CkNgI=; b=MhxpBEdcU/kBPI
+	kJ+xOmvG+ot9YOlG20h8iOgwu99+lPwv003E1kjDl9YVIqUlcE1fkx/54TCuFVrMGsVIv+A3ShPVb
+	NpsQgA3Xj8hzgU+UPX9IeKqUF89sGIWAtYWtIK7By7Bu1o2clsFGp5tEuGPp8o0SohdZhtwOpcitA
+	xehzPIfp63RkZtK8xNZckT57PQlPjgV7eKghB8US7COf+mdL/CIKO5ZwO9Od5dNnPWX/nXb/6aGN3
+	cLEFUQd/4+N6k03wXhHcZnZukYrmMkKnoNvbFSWL6WqJJa7I+xxIQxsHKasY1Kcds2vZCRaTQbsJx
+	tZQghk2jSmkT/5fX2UGg==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUb9-00000003R7A-1hIZ;
+	Wed, 07 Aug 2024 00:32:15 +0000
+Received: from mail-oi1-x22d.google.com ([2607:f8b0:4864:20::22d])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUay-00000003Qwh-2eHU
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:32:11 +0000
+Received: by mail-oi1-x22d.google.com with SMTP id
+ 5614622812f47-3db12a2f530so704392b6e.1
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:32:04 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990723;
+ x=1723595523; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=Ue1EbgDjCiZYHRhhKMa1x9OySeH22cyqtVwCfcHm8DA=;
+        b=PNM6pO9VVjbOF5Y2JWqkDL9DFUnNV8bvwPldbj5jcJ923R+cWRzbzmG29ZKuI7FYSD
+         jzDFQL9IUIo/bBpINKm7IeQZpbRA88DeeMCnW5vYDyzq5+BpdsMpy3L9aRQo29Duh9u1
+         5pIdPfujHtMznjRdM/zESA+YHr+/Vr6HyoQkhu/JtKOM5WhXJM6U4MqnGCwRT9AhdexO
+         jzcpXWckxnx4tLC7pMHj+ly1QIXcmrolHfD8v3hxvo+NtWSHXBbS3KL5IWcjNoHFMCuu
+         pIwjt0XdAUBO02RGcDcp5noWs0auA5fXhdSQG4A4ja2kTFqTJXgwbHTo3jRudNWD5T7l
+         LDYw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990723; x=1723595523;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=Ue1EbgDjCiZYHRhhKMa1x9OySeH22cyqtVwCfcHm8DA=;
+        b=Sj/OLC0dBpt9CgjAMxjDRDo2XFVT8Gere2Ga84j2wRKzGRDYlCJJFHZML1ZksOzJRh
+         guty/ARXD7bpI4u/7oMdgNr8vwElcP1KWJCYK0HRH+2tUWD4H1Kts15zliE7gcySk1bp
+         daZcV8VfL/bA4c2/M5rb5Ie2g94V3++qi6DUkdivFXqtksr8WhraOZmfyRUivBVqjdVq
+         /g8gvkuuZgh6OPWkOZTunpJmeaBr8/GKrxXAo8KRbYf89D6AtttQT/PfX3EA/I1S9pWN
+         8yunpmy4Dmw2Nl66g6AWRZb5/E3bCrz19pYnlbl3uLdx0p77Gbj6TBHOraGZl7JlCDnk
+         TNOw==
+X-Gm-Message-State: AOJu0YyPbCWTyJCF/uuZiw2cFPMWFdqXp+CHH7msII7Ag7ufe4xsloh+
+	Ngg32FLeFaEFEbi/r6o+HPCZJRKEBac1uOpMCmhzBsWSZ1JVvtWshd7+mXITVxg=
+X-Google-Smtp-Source: 
+ AGHT+IGM7pJ1YoWNLVIMpiGLIfAfHRcbsjU1IBBoVGQv9wI4dL5t5zneIR+4rqe8NVD2XiDD3VxGjg==
+X-Received: by 2002:a05:6808:19a9:b0:3d6:2fe3:35ff with SMTP id
+ 5614622812f47-3db55808fa1mr22327271b6e.14.1722990723305;
+        Tue, 06 Aug 2024 17:32:03 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.32.01
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:32:02 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:45 -0700
+Subject: [PATCH v9 09/13] riscv: vector: Support xtheadvector save/restore
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-9-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>,
+ Conor Dooley <conor.dooley@microchip.com>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=18732;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=ySQx6S8W9HZmIJ8rtw6wr35QHdb8pikcGHIdIMIZPaM=;
+ b=iKQ5FhnpY9ke8O3V/YCYznrrbrEjRWKtLbSsQUG0s8+GKc9NBQqxVr0g6nGhwSjdM7peVUZbM
+ P6ptdY+VmzJDfNQN0ItQxUURuwy5Aq1eK4JK63OaR2H16u5k27NzLxN
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173204_828511_996B9917 
+X-CRM114-Status: GOOD (  20.14  )
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+Use alternatives to add support for xtheadvector vector save/restore
+routines.
+
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+Reviewed-by: Conor Dooley <conor.dooley@microchip.com>
+---
+ arch/riscv/include/asm/csr.h           |   6 +
+ arch/riscv/include/asm/switch_to.h     |   2 +-
+ arch/riscv/include/asm/vector.h        | 225 +++++++++++++++++++++++++--------
+ arch/riscv/kernel/cpufeature.c         |   3 +-
+ arch/riscv/kernel/kernel_mode_vector.c |   8 +-
+ arch/riscv/kernel/process.c            |   4 +-
+ arch/riscv/kernel/signal.c             |   6 +-
+ arch/riscv/kernel/vector.c             |  12 +-
+ 8 files changed, 199 insertions(+), 67 deletions(-)
+
+diff --git a/arch/riscv/include/asm/csr.h b/arch/riscv/include/asm/csr.h
+index c0a60c4ed911..b4b3fcb1d142 100644
+--- a/arch/riscv/include/asm/csr.h
++++ b/arch/riscv/include/asm/csr.h
+@@ -30,6 +30,12 @@
+ #define SR_VS_CLEAN	_AC(0x00000400, UL)
+ #define SR_VS_DIRTY	_AC(0x00000600, UL)
+ 
++#define SR_VS_THEAD		_AC(0x01800000, UL) /* xtheadvector Status */
++#define SR_VS_OFF_THEAD		_AC(0x00000000, UL)
++#define SR_VS_INITIAL_THEAD	_AC(0x00800000, UL)
++#define SR_VS_CLEAN_THEAD	_AC(0x01000000, UL)
++#define SR_VS_DIRTY_THEAD	_AC(0x01800000, UL)
++
+ #define SR_XS		_AC(0x00018000, UL) /* Extension Status */
+ #define SR_XS_OFF	_AC(0x00000000, UL)
+ #define SR_XS_INITIAL	_AC(0x00008000, UL)
+diff --git a/arch/riscv/include/asm/switch_to.h b/arch/riscv/include/asm/switch_to.h
+index 7594df37cc9f..f9cbebe372b8 100644
+--- a/arch/riscv/include/asm/switch_to.h
++++ b/arch/riscv/include/asm/switch_to.h
+@@ -99,7 +99,7 @@ do {							\
+ 	__set_prev_cpu(__prev->thread);			\
+ 	if (has_fpu())					\
+ 		__switch_to_fpu(__prev, __next);	\
+-	if (has_vector())					\
++	if (has_vector() || has_xtheadvector())		\
+ 		__switch_to_vector(__prev, __next);	\
+ 	if (switch_to_should_flush_icache(__next))	\
+ 		local_flush_icache_all();		\
+diff --git a/arch/riscv/include/asm/vector.h b/arch/riscv/include/asm/vector.h
+index be7d309cca8a..6fd05efc6837 100644
+--- a/arch/riscv/include/asm/vector.h
++++ b/arch/riscv/include/asm/vector.h
+@@ -18,6 +18,27 @@
+ #include <asm/cpufeature.h>
+ #include <asm/csr.h>
+ #include <asm/asm.h>
++#include <asm/vendorid_list.h>
++#include <asm/vendor_extensions.h>
++#include <asm/vendor_extensions/thead.h>
++
++#define __riscv_v_vstate_or(_val, TYPE) ({				\
++	typeof(_val) _res = _val;					\
++	if (has_xtheadvector()) \
++		_res = (_res & ~SR_VS_THEAD) | SR_VS_##TYPE##_THEAD;	\
++	else								\
++		_res = (_res & ~SR_VS) | SR_VS_##TYPE;			\
++	_res;								\
++})
++
++#define __riscv_v_vstate_check(_val, TYPE) ({				\
++	bool _res;							\
++	if (has_xtheadvector()) \
++		_res = ((_val) & SR_VS_THEAD) == SR_VS_##TYPE##_THEAD;	\
++	else								\
++		_res = ((_val) & SR_VS) == SR_VS_##TYPE;		\
++	_res;								\
++})
+ 
+ extern unsigned long riscv_v_vsize;
+ int riscv_v_setup_vsize(void);
+@@ -40,39 +61,62 @@ static __always_inline bool has_vector(void)
+ 	return riscv_has_extension_unlikely(RISCV_ISA_EXT_ZVE32X);
+ }
+ 
++static __always_inline bool has_xtheadvector_no_alternatives(void)
++{
++	if (IS_ENABLED(CONFIG_RISCV_ISA_XTHEADVECTOR))
++		return riscv_isa_vendor_extension_available(THEAD_VENDOR_ID, XTHEADVECTOR);
++	else
++		return false;
++}
++
++static __always_inline bool has_xtheadvector(void)
++{
++	if (IS_ENABLED(CONFIG_RISCV_ISA_XTHEADVECTOR))
++		return riscv_has_vendor_extension_unlikely(THEAD_VENDOR_ID,
++							   RISCV_ISA_VENDOR_EXT_XTHEADVECTOR);
++	else
++		return false;
++}
++
+ static inline void __riscv_v_vstate_clean(struct pt_regs *regs)
+ {
+-	regs->status = (regs->status & ~SR_VS) | SR_VS_CLEAN;
++	regs->status = __riscv_v_vstate_or(regs->status, CLEAN);
+ }
+ 
+ static inline void __riscv_v_vstate_dirty(struct pt_regs *regs)
+ {
+-	regs->status = (regs->status & ~SR_VS) | SR_VS_DIRTY;
++	regs->status = __riscv_v_vstate_or(regs->status, DIRTY);
+ }
+ 
+ static inline void riscv_v_vstate_off(struct pt_regs *regs)
+ {
+-	regs->status = (regs->status & ~SR_VS) | SR_VS_OFF;
++	regs->status = __riscv_v_vstate_or(regs->status, OFF);
+ }
+ 
+ static inline void riscv_v_vstate_on(struct pt_regs *regs)
+ {
+-	regs->status = (regs->status & ~SR_VS) | SR_VS_INITIAL;
++	regs->status = __riscv_v_vstate_or(regs->status, INITIAL);
+ }
+ 
+ static inline bool riscv_v_vstate_query(struct pt_regs *regs)
+ {
+-	return (regs->status & SR_VS) != 0;
++	return !__riscv_v_vstate_check(regs->status, OFF);
+ }
+ 
+ static __always_inline void riscv_v_enable(void)
+ {
+-	csr_set(CSR_SSTATUS, SR_VS);
++	if (has_xtheadvector())
++		csr_set(CSR_SSTATUS, SR_VS_THEAD);
++	else
++		csr_set(CSR_SSTATUS, SR_VS);
+ }
+ 
+ static __always_inline void riscv_v_disable(void)
+ {
+-	csr_clear(CSR_SSTATUS, SR_VS);
++	if (has_xtheadvector())
++		csr_clear(CSR_SSTATUS, SR_VS_THEAD);
++	else
++		csr_clear(CSR_SSTATUS, SR_VS);
+ }
+ 
+ static __always_inline void __vstate_csr_save(struct __riscv_v_ext_state *dest)
+@@ -81,10 +125,36 @@ static __always_inline void __vstate_csr_save(struct __riscv_v_ext_state *dest)
+ 		"csrr	%0, " __stringify(CSR_VSTART) "\n\t"
+ 		"csrr	%1, " __stringify(CSR_VTYPE) "\n\t"
+ 		"csrr	%2, " __stringify(CSR_VL) "\n\t"
+-		"csrr	%3, " __stringify(CSR_VCSR) "\n\t"
+-		"csrr	%4, " __stringify(CSR_VLENB) "\n\t"
+ 		: "=r" (dest->vstart), "=r" (dest->vtype), "=r" (dest->vl),
+-		  "=r" (dest->vcsr), "=r" (dest->vlenb) : :);
++		"=r" (dest->vcsr) : :);
++
++	if (has_xtheadvector()) {
++		unsigned long status;
++
++		/*
++		 * CSR_VCSR is defined as
++		 * [2:1] - vxrm[1:0]
++		 * [0] - vxsat
++		 * The earlier vector spec implemented by T-Head uses separate
++		 * registers for the same bit-elements, so just combine those
++		 * into the existing output field.
++		 *
++		 * Additionally T-Head cores need FS to be enabled when accessing
++		 * the VXRM and VXSAT CSRs, otherwise ending in illegal instructions.
++		 * Though the cores do not implement the VXRM and VXSAT fields in the
++		 * FCSR CSR that vector-0.7.1 specifies.
++		 */
++		status = csr_read_set(CSR_STATUS, SR_FS_DIRTY);
++		dest->vcsr = csr_read(CSR_VXSAT) | csr_read(CSR_VXRM) << CSR_VXRM_SHIFT;
++
++		dest->vlenb = riscv_v_vsize / 32;
++
++		if ((status & SR_FS) != SR_FS_DIRTY)
++			csr_write(CSR_STATUS, status);
++	} else {
++		dest->vcsr = csr_read(CSR_VCSR);
++		dest->vlenb = csr_read(CSR_VLENB);
++	}
+ }
+ 
+ static __always_inline void __vstate_csr_restore(struct __riscv_v_ext_state *src)
+@@ -95,9 +165,25 @@ static __always_inline void __vstate_csr_restore(struct __riscv_v_ext_state *src
+ 		"vsetvl	 x0, %2, %1\n\t"
+ 		".option pop\n\t"
+ 		"csrw	" __stringify(CSR_VSTART) ", %0\n\t"
+-		"csrw	" __stringify(CSR_VCSR) ", %3\n\t"
+-		: : "r" (src->vstart), "r" (src->vtype), "r" (src->vl),
+-		    "r" (src->vcsr) :);
++		: : "r" (src->vstart), "r" (src->vtype), "r" (src->vl));
++
++	if (has_xtheadvector()) {
++		unsigned long status = csr_read(CSR_SSTATUS);
++
++		/*
++		 * Similar to __vstate_csr_save above, restore values for the
++		 * separate VXRM and VXSAT CSRs from the vcsr variable.
++		 */
++		status = csr_read_set(CSR_STATUS, SR_FS_DIRTY);
++
++		csr_write(CSR_VXRM, (src->vcsr >> CSR_VXRM_SHIFT) & CSR_VXRM_MASK);
++		csr_write(CSR_VXSAT, src->vcsr & CSR_VXSAT_MASK);
++
++		if ((status & SR_FS) != SR_FS_DIRTY)
++			csr_write(CSR_STATUS, status);
++	} else {
++		csr_write(CSR_VCSR, src->vcsr);
++	}
+ }
+ 
+ static inline void __riscv_v_vstate_save(struct __riscv_v_ext_state *save_to,
+@@ -107,19 +193,33 @@ static inline void __riscv_v_vstate_save(struct __riscv_v_ext_state *save_to,
+ 
+ 	riscv_v_enable();
+ 	__vstate_csr_save(save_to);
+-	asm volatile (
+-		".option push\n\t"
+-		".option arch, +zve32x\n\t"
+-		"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
+-		"vse8.v		v0, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v8, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v16, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v24, (%1)\n\t"
+-		".option pop\n\t"
+-		: "=&r" (vl) : "r" (datap) : "memory");
++	if (has_xtheadvector()) {
++		asm volatile (
++			"mv t0, %0\n\t"
++			THEAD_VSETVLI_T4X0E8M8D1
++			THEAD_VSB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VSB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VSB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VSB_V_V0T0
++			: : "r" (datap) : "memory", "t0", "t4");
++	} else {
++		asm volatile (
++			".option push\n\t"
++			".option arch, +zve32x\n\t"
++			"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
++			"vse8.v		v0, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vse8.v		v8, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vse8.v		v16, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vse8.v		v24, (%1)\n\t"
++			".option pop\n\t"
++			: "=&r" (vl) : "r" (datap) : "memory");
++	}
+ 	riscv_v_disable();
+ }
+ 
+@@ -129,28 +229,51 @@ static inline void __riscv_v_vstate_restore(struct __riscv_v_ext_state *restore_
+ 	unsigned long vl;
+ 
+ 	riscv_v_enable();
+-	asm volatile (
+-		".option push\n\t"
+-		".option arch, +zve32x\n\t"
+-		"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
+-		"vle8.v		v0, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vle8.v		v8, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vle8.v		v16, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vle8.v		v24, (%1)\n\t"
+-		".option pop\n\t"
+-		: "=&r" (vl) : "r" (datap) : "memory");
++	if (has_xtheadvector()) {
++		asm volatile (
++			"mv t0, %0\n\t"
++			THEAD_VSETVLI_T4X0E8M8D1
++			THEAD_VLB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VLB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VLB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VLB_V_V0T0
++			: : "r" (datap) : "memory", "t0", "t4");
++	} else {
++		asm volatile (
++			".option push\n\t"
++			".option arch, +zve32x\n\t"
++			"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
++			"vle8.v		v0, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vle8.v		v8, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vle8.v		v16, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vle8.v		v24, (%1)\n\t"
++			".option pop\n\t"
++			: "=&r" (vl) : "r" (datap) : "memory");
++	}
+ 	__vstate_csr_restore(restore_from);
+ 	riscv_v_disable();
+ }
+ 
+ static inline void __riscv_v_vstate_discard(void)
+ {
+-	unsigned long vl, vtype_inval = 1UL << (BITS_PER_LONG - 1);
++	unsigned long vtype_inval = 1UL << (BITS_PER_LONG - 1);
+ 
+ 	riscv_v_enable();
++	if (has_xtheadvector())
++		asm volatile (THEAD_VSETVLI_X0X0E8M8D1);
++	else
++		asm volatile (
++			".option push\n\t"
++			".option arch, +v\n\t"
++			"vsetvli	x0, x0, e8, m8, ta, ma\n\t"
++			".option pop\n\t");
++
+ 	asm volatile (
+ 		".option push\n\t"
+ 		".option arch, +zve32x\n\t"
+@@ -159,25 +282,25 @@ static inline void __riscv_v_vstate_discard(void)
+ 		"vmv.v.i	v8, -1\n\t"
+ 		"vmv.v.i	v16, -1\n\t"
+ 		"vmv.v.i	v24, -1\n\t"
+-		"vsetvl		%0, x0, %1\n\t"
++		"vsetvl		x0, x0, %0\n\t"
+ 		".option pop\n\t"
+-		: "=&r" (vl) : "r" (vtype_inval) : "memory");
++		: : "r" (vtype_inval));
++
+ 	riscv_v_disable();
+ }
+ 
+ static inline void riscv_v_vstate_discard(struct pt_regs *regs)
+ {
+-	if ((regs->status & SR_VS) == SR_VS_OFF)
+-		return;
+-
+-	__riscv_v_vstate_discard();
+-	__riscv_v_vstate_dirty(regs);
++	if (riscv_v_vstate_query(regs)) {
++		__riscv_v_vstate_discard();
++		__riscv_v_vstate_dirty(regs);
++	}
+ }
+ 
+ static inline void riscv_v_vstate_save(struct __riscv_v_ext_state *vstate,
+ 				       struct pt_regs *regs)
+ {
+-	if ((regs->status & SR_VS) == SR_VS_DIRTY) {
++	if (__riscv_v_vstate_check(regs->status, DIRTY)) {
+ 		__riscv_v_vstate_save(vstate, vstate->datap);
+ 		__riscv_v_vstate_clean(regs);
+ 	}
+@@ -186,7 +309,7 @@ static inline void riscv_v_vstate_save(struct __riscv_v_ext_state *vstate,
+ static inline void riscv_v_vstate_restore(struct __riscv_v_ext_state *vstate,
+ 					  struct pt_regs *regs)
+ {
+-	if ((regs->status & SR_VS) != SR_VS_OFF) {
++	if (riscv_v_vstate_query(regs)) {
+ 		__riscv_v_vstate_restore(vstate, vstate->datap);
+ 		__riscv_v_vstate_clean(regs);
+ 	}
+@@ -195,7 +318,7 @@ static inline void riscv_v_vstate_restore(struct __riscv_v_ext_state *vstate,
+ static inline void riscv_v_vstate_set_restore(struct task_struct *task,
+ 					      struct pt_regs *regs)
+ {
+-	if ((regs->status & SR_VS) != SR_VS_OFF) {
++	if (riscv_v_vstate_query(regs)) {
+ 		set_tsk_thread_flag(task, TIF_RISCV_V_DEFER_RESTORE);
+ 		riscv_v_vstate_on(regs);
+ 	}
+@@ -268,6 +391,8 @@ struct pt_regs;
+ 
+ static inline int riscv_v_setup_vsize(void) { return -EOPNOTSUPP; }
+ static __always_inline bool has_vector(void) { return false; }
++static __always_inline bool has_xtheadvector_no_alternatives(void) { return false; }
++static __always_inline bool has_xtheadvector(void) { return false; }
+ static inline bool riscv_v_first_use_handler(struct pt_regs *regs) { return false; }
+ static inline bool riscv_v_vstate_query(struct pt_regs *regs) { return false; }
+ static inline bool riscv_v_vstate_ctrl_user_allowed(void) { return false; }
+diff --git a/arch/riscv/kernel/cpufeature.c b/arch/riscv/kernel/cpufeature.c
+index 477375e5edb0..e2ac06988418 100644
+--- a/arch/riscv/kernel/cpufeature.c
++++ b/arch/riscv/kernel/cpufeature.c
+@@ -925,7 +925,8 @@ void __init riscv_fill_hwcap(void)
+ 		elf_hwcap &= ~COMPAT_HWCAP_ISA_F;
+ 	}
+ 
+-	if (__riscv_isa_extension_available(NULL, RISCV_ISA_EXT_ZVE32X)) {
++	if (__riscv_isa_extension_available(NULL, RISCV_ISA_EXT_ZVE32X) ||
++	    has_xtheadvector_no_alternatives()) {
+ 		/*
+ 		 * This cannot fail when called on the boot hart
+ 		 */
+diff --git a/arch/riscv/kernel/kernel_mode_vector.c b/arch/riscv/kernel/kernel_mode_vector.c
+index 6afe80c7f03a..99972a48e86b 100644
+--- a/arch/riscv/kernel/kernel_mode_vector.c
++++ b/arch/riscv/kernel/kernel_mode_vector.c
+@@ -143,7 +143,7 @@ static int riscv_v_start_kernel_context(bool *is_nested)
+ 
+ 	/* Transfer the ownership of V from user to kernel, then save */
+ 	riscv_v_start(RISCV_PREEMPT_V | RISCV_PREEMPT_V_DIRTY);
+-	if ((task_pt_regs(current)->status & SR_VS) == SR_VS_DIRTY) {
++	if (__riscv_v_vstate_check(task_pt_regs(current)->status, DIRTY)) {
+ 		uvstate = &current->thread.vstate;
+ 		__riscv_v_vstate_save(uvstate, uvstate->datap);
+ 	}
+@@ -160,7 +160,7 @@ asmlinkage void riscv_v_context_nesting_start(struct pt_regs *regs)
+ 		return;
+ 
+ 	depth = riscv_v_ctx_get_depth();
+-	if (depth == 0 && (regs->status & SR_VS) == SR_VS_DIRTY)
++	if (depth == 0 && __riscv_v_vstate_check(regs->status, DIRTY))
+ 		riscv_preempt_v_set_dirty();
+ 
+ 	riscv_v_ctx_depth_inc();
+@@ -208,7 +208,7 @@ void kernel_vector_begin(void)
+ {
+ 	bool nested = false;
+ 
+-	if (WARN_ON(!has_vector()))
++	if (WARN_ON(!(has_vector() || has_xtheadvector())))
+ 		return;
+ 
+ 	BUG_ON(!may_use_simd());
+@@ -236,7 +236,7 @@ EXPORT_SYMBOL_GPL(kernel_vector_begin);
+  */
+ void kernel_vector_end(void)
+ {
+-	if (WARN_ON(!has_vector()))
++	if (WARN_ON(!(has_vector() || has_xtheadvector())))
+ 		return;
+ 
+ 	riscv_v_disable();
+diff --git a/arch/riscv/kernel/process.c b/arch/riscv/kernel/process.c
+index e4bc61c4e58a..191023decd16 100644
+--- a/arch/riscv/kernel/process.c
++++ b/arch/riscv/kernel/process.c
+@@ -176,7 +176,7 @@ void flush_thread(void)
+ void arch_release_task_struct(struct task_struct *tsk)
+ {
+ 	/* Free the vector context of datap. */
+-	if (has_vector())
++	if (has_vector() || has_xtheadvector())
+ 		riscv_v_thread_free(tsk);
+ }
+ 
+@@ -222,7 +222,7 @@ int copy_thread(struct task_struct *p, const struct kernel_clone_args *args)
+ 		p->thread.s[0] = 0;
+ 	}
+ 	p->thread.riscv_v_flags = 0;
+-	if (has_vector())
++	if (has_vector() || has_xtheadvector())
+ 		riscv_v_thread_alloc(p);
+ 	p->thread.ra = (unsigned long)ret_from_fork;
+ 	p->thread.sp = (unsigned long)childregs; /* kernel sp */
+diff --git a/arch/riscv/kernel/signal.c b/arch/riscv/kernel/signal.c
+index dcd282419456..94e905eea1de 100644
+--- a/arch/riscv/kernel/signal.c
++++ b/arch/riscv/kernel/signal.c
+@@ -189,7 +189,7 @@ static long restore_sigcontext(struct pt_regs *regs,
+ 
+ 			return 0;
+ 		case RISCV_V_MAGIC:
+-			if (!has_vector() || !riscv_v_vstate_query(regs) ||
++			if (!(has_vector() || has_xtheadvector()) || !riscv_v_vstate_query(regs) ||
+ 			    size != riscv_v_sc_size)
+ 				return -EINVAL;
+ 
+@@ -211,7 +211,7 @@ static size_t get_rt_frame_size(bool cal_all)
+ 
+ 	frame_size = sizeof(*frame);
+ 
+-	if (has_vector()) {
++	if (has_vector() || has_xtheadvector()) {
+ 		if (cal_all || riscv_v_vstate_query(task_pt_regs(current)))
+ 			total_context_size += riscv_v_sc_size;
+ 	}
+@@ -284,7 +284,7 @@ static long setup_sigcontext(struct rt_sigframe __user *frame,
+ 	if (has_fpu())
+ 		err |= save_fp_state(regs, &sc->sc_fpregs);
+ 	/* Save the vector state. */
+-	if (has_vector() && riscv_v_vstate_query(regs))
++	if ((has_vector() || has_xtheadvector()) && riscv_v_vstate_query(regs))
+ 		err |= save_v_state(regs, (void __user **)&sc_ext_ptr);
+ 	/* Write zero to fp-reserved space and check it on restore_sigcontext */
+ 	err |= __put_user(0, &sc->sc_extdesc.reserved);
+diff --git a/arch/riscv/kernel/vector.c b/arch/riscv/kernel/vector.c
+index 9775d6a9c8ee..f3e1de574050 100644
+--- a/arch/riscv/kernel/vector.c
++++ b/arch/riscv/kernel/vector.c
+@@ -63,7 +63,7 @@ int riscv_v_setup_vsize(void)
+ 
+ void __init riscv_v_setup_ctx_cache(void)
+ {
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return;
+ 
+ 	riscv_v_user_cachep = kmem_cache_create_usercopy("riscv_vector_ctx",
+@@ -183,7 +183,7 @@ bool riscv_v_first_use_handler(struct pt_regs *regs)
+ 	u32 __user *epc = (u32 __user *)regs->epc;
+ 	u32 insn = (u32)regs->badaddr;
+ 
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return false;
+ 
+ 	/* Do not handle if V is not supported, or disabled */
+@@ -226,7 +226,7 @@ void riscv_v_vstate_ctrl_init(struct task_struct *tsk)
+ 	bool inherit;
+ 	int cur, next;
+ 
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return;
+ 
+ 	next = riscv_v_ctrl_get_next(tsk);
+@@ -248,7 +248,7 @@ void riscv_v_vstate_ctrl_init(struct task_struct *tsk)
+ 
+ long riscv_v_vstate_ctrl_get_current(void)
+ {
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return -EINVAL;
+ 
+ 	return current->thread.vstate_ctrl & PR_RISCV_V_VSTATE_CTRL_MASK;
+@@ -259,7 +259,7 @@ long riscv_v_vstate_ctrl_set_current(unsigned long arg)
+ 	bool inherit;
+ 	int cur, next;
+ 
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return -EINVAL;
+ 
+ 	if (arg & ~PR_RISCV_V_VSTATE_CTRL_MASK)
+@@ -309,7 +309,7 @@ static struct ctl_table riscv_v_default_vstate_table[] = {
+ 
+ static int __init riscv_v_sysctl_init(void)
+ {
+-	if (has_vector())
++	if (has_vector() || has_xtheadvector())
+ 		if (!register_sysctl("abi", riscv_v_default_vstate_table))
+ 			return -EINVAL;
+ 	return 0;
+
+From patchwork Wed Aug  7 00:31:46 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755564
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id 31D0FC52D6F
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:32:27 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=RVjoSGeSYTn1h27OcwbWnswEJaixSqKLaXXHMM5ELbs=; b=JQpxjnqADLPz/V
+	3hGljjPNhqHO4XwyZMW+WY4firZEwOw1+wRA1D6LB6329JfdEhMaRG9ef4KXFxYMY2nr+6dlhC7lF
+	sfT9E/+XWN+gdl1ZhiZgOvq6a6C1R6oBaUifUsu6vFuAp1Jz+pK36z+HTAUG1011y12b6ZriiBJfh
+	ogkev4Rvw3wTsGa95IdCPoU8pQzW+bDPg7yIdJ3lNUfmg0ku74ZKzjUXLgv04ZZnog3b3jIwD7GPc
+	JAlRZVrcxX1Q7cgEb22lhioT1tOvyjH43lELTF7SKUFqRILJMdY82qqQD7eHxIVOlIX+hqEkOP6rT
+	Z6UhFeLUafen5GH4gNmA==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUbI-00000003RFB-0zLV;
+	Wed, 07 Aug 2024 00:32:24 +0000
+Received: from mail-pf1-x433.google.com ([2607:f8b0:4864:20::433])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUb0-00000003QyX-2NQM
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:32:14 +0000
+Received: by mail-pf1-x433.google.com with SMTP id
+ d2e1a72fcca58-70d2b921c48so990699b3a.1
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:32:06 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990725;
+ x=1723595525; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=D01ZlODzldl6pwLwzxaH5YS2gXfh7f2sIelDqEUUONI=;
+        b=K2FTJnQhO7bFXztQ1Ej0+ERvWs8HaWHEh16uRUoIMJW8rLboRLwgyrWGAuCpFjK4FI
+         cABZyEAHZdyrYweWY/YkwS1/5tXUBpUVyLXrmbDISFbb7V2jbp5g2+9a+wZi6H7aQS9O
+         DnkBDKFIDilpsmT2zcSVBH+jOEm/9wkmVzbKgjBmG0+3H2Zv9bAB7wXLGc4cVHS2CZlz
+         PDbXjACPf8rhPjS5KCqpGBWVD0VI/fjTDNKVqklx077ILUFUmDrAZVpdzuGxk20zO06M
+         2d3HnRMaBMVPTWgVpuA2iQ4l9AdjB1NEkgI/u76vOFquZ+pQENk2YQ3F9BEyrtijn+Hl
+         Inqw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990725; x=1723595525;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=D01ZlODzldl6pwLwzxaH5YS2gXfh7f2sIelDqEUUONI=;
+        b=g2NARPnKmEkLocIM49D+iBA2CGAj/YZ5Jnf8ysjrZ19/EOLvoG1xUjZi12v6R+vklX
+         rgDPS0/kI5dsqBVDMRr/MHaMstgh5rFKL+ksmh+b4MgFYS5cuncK/eTPs2VWyy32M/M5
+         esFIR/Vbmk1JIrFn1YJxPqqtlcmyoPXPRcMzkNaRYgGBhaOPqZTOF2VCbGOGexadq3ku
+         p7HXo25Z2n3s9TMuv/QmeC0kXsz9m8A+2dm4BoLA5sJsrRQ+63QRLPjOoZRMSyJSNNMa
+         JUlVJwSl9F+Rwb45D6ytHWCN4KHPVYON6Tyo2/MxXdWbCVJBLh9BZr4+d5tSI/k9wDN1
+         X8mw==
+X-Gm-Message-State: AOJu0YypO/dywXl/VS9ilAOHk73GQ7aC14VTtQ3l1+0er9NPybhj0PLH
+	LXH7xZmvBVao0vZLwdvK+u/KfU6+zB0p2bHSBb9cdH4CInARnggRPa1S8oXcMbo=
+X-Google-Smtp-Source: 
+ AGHT+IF1hAhy3yY4m7Zob77fC8OLnSvHTjn/HAIRRv366KI7Cs651KGqHL8OxhUyA6y0rQcwdMhzeQ==
+X-Received: by 2002:a05:6a00:914c:b0:706:284f:6a68 with SMTP id
+ d2e1a72fcca58-7106d04618amr15219322b3a.23.1722990725358;
+        Tue, 06 Aug 2024 17:32:05 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.32.03
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:32:04 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:46 -0700
+Subject: [PATCH v9 10/13] riscv: hwprobe: Add thead vendor extension
+ probing
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-10-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=7365;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=8kD/lDOSxQ4iVYaYEwxdpJh5wgIKszrhE4FEXnByLMs=;
+ b=ddWS5TtvarR7ueO6F5f2URA3qaSX58nPPYoMDVgolR67I/69GapgsSiyszstlyJr+VvNU8lf1
+ 1Kj5QcFgcKIC0zOuAqIE13aXrsWxjMss9xgZC8EKNwOPgB+5FSZhCJn
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173206_866927_2DED597E 
+X-CRM114-Status: GOOD (  19.94  )
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+Add a new hwprobe key "RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0" which
+allows userspace to probe for the new RISCV_ISA_VENDOR_EXT_XTHEADVECTOR
+vendor extension.
+
+This new key will allow userspace code to probe for which thead vendor
+extensions are supported. This API is modeled to be consistent with
+RISCV_HWPROBE_KEY_IMA_EXT_0. The bitmask returned will have each bit
+corresponding to a supported thead vendor extension of the cpumask set.
+Just like RISCV_HWPROBE_KEY_IMA_EXT_0, this allows a userspace program
+to determine all of the supported thead vendor extensions in one call.
+
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+Reviewed-by: Evan Green <evan@rivosinc.com>
+---
+ arch/riscv/include/asm/hwprobe.h                   |  3 +-
+ .../include/asm/vendor_extensions/thead_hwprobe.h  | 19 +++++++++++
+ .../include/asm/vendor_extensions/vendor_hwprobe.h | 37 ++++++++++++++++++++++
+ arch/riscv/include/uapi/asm/hwprobe.h              |  3 +-
+ arch/riscv/include/uapi/asm/vendor/thead.h         |  3 ++
+ arch/riscv/kernel/sys_hwprobe.c                    |  5 +++
+ arch/riscv/kernel/vendor_extensions/Makefile       |  1 +
+ .../riscv/kernel/vendor_extensions/thead_hwprobe.c | 19 +++++++++++
+ 8 files changed, 88 insertions(+), 2 deletions(-)
+
+diff --git a/arch/riscv/include/asm/hwprobe.h b/arch/riscv/include/asm/hwprobe.h
+index ef01c182af2b..6148e1eab64c 100644
+--- a/arch/riscv/include/asm/hwprobe.h
++++ b/arch/riscv/include/asm/hwprobe.h
+@@ -1,6 +1,6 @@
+ /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+ /*
+- * Copyright 2023 Rivos, Inc
++ * Copyright 2023-2024 Rivos, Inc
+  */
+ 
+ #ifndef _ASM_HWPROBE_H
+@@ -21,6 +21,7 @@ static inline bool hwprobe_key_is_bitmask(__s64 key)
+ 	case RISCV_HWPROBE_KEY_BASE_BEHAVIOR:
+ 	case RISCV_HWPROBE_KEY_IMA_EXT_0:
+ 	case RISCV_HWPROBE_KEY_CPUPERF_0:
++	case RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0:
+ 		return true;
+ 	}
+ 
+diff --git a/arch/riscv/include/asm/vendor_extensions/thead_hwprobe.h b/arch/riscv/include/asm/vendor_extensions/thead_hwprobe.h
+new file mode 100644
+index 000000000000..65a9c5612466
+--- /dev/null
++++ b/arch/riscv/include/asm/vendor_extensions/thead_hwprobe.h
+@@ -0,0 +1,19 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_HWPROBE_H
++#define _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_HWPROBE_H
++
++#include <linux/cpumask.h>
++
++#include <uapi/asm/hwprobe.h>
++
++#ifdef CONFIG_RISCV_ISA_VENDOR_EXT_THEAD
++void hwprobe_isa_vendor_ext_thead_0(struct riscv_hwprobe *pair, const struct cpumask *cpus);
++#else
++static inline void hwprobe_isa_vendor_ext_thead_0(struct riscv_hwprobe *pair,
++						  const struct cpumask *cpus)
++{
++	pair->value = 0;
++}
++#endif
++
++#endif
+diff --git a/arch/riscv/include/asm/vendor_extensions/vendor_hwprobe.h b/arch/riscv/include/asm/vendor_extensions/vendor_hwprobe.h
+new file mode 100644
+index 000000000000..6b9293e984a9
+--- /dev/null
++++ b/arch/riscv/include/asm/vendor_extensions/vendor_hwprobe.h
+@@ -0,0 +1,37 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * Copyright 2024 Rivos, Inc
++ */
++
++#ifndef _ASM_RISCV_SYS_HWPROBE_H
++#define _ASM_RISCV_SYS_HWPROBE_H
++
++#include <asm/cpufeature.h>
++
++#define VENDOR_EXT_KEY(ext)								\
++	do {										\
++		if (__riscv_isa_extension_available(isainfo->isa, RISCV_ISA_VENDOR_EXT_##ext)) \
++			pair->value |= RISCV_HWPROBE_VENDOR_EXT_##ext;			\
++		else									\
++			missing |= RISCV_HWPROBE_VENDOR_EXT_##ext;			\
++	} while (false)
++
++/*
++ * Loop through and record extensions that 1) anyone has, and 2) anyone
++ * doesn't have.
++ *
++ * _extension_checks is an arbitrary C block to set the values of pair->value
++ * and missing. It should be filled with VENDOR_EXT_KEY expressions.
++ */
++#define VENDOR_EXTENSION_SUPPORTED(pair, cpus, per_hart_vendor_bitmap, _extension_checks)	\
++	do {											\
++		int cpu;									\
++		u64 missing = 0;								\
++		for_each_cpu(cpu, (cpus)) {							\
++			struct riscv_isavendorinfo *isainfo = &(per_hart_vendor_bitmap)[cpu];	\
++			_extension_checks							\
++		}										\
++		(pair)->value &= ~missing;							\
++	} while (false)										\
++
++#endif /* _ASM_RISCV_SYS_HWPROBE_H */
+diff --git a/arch/riscv/include/uapi/asm/hwprobe.h b/arch/riscv/include/uapi/asm/hwprobe.h
+index b706c8e47b02..452d0b84f17f 100644
+--- a/arch/riscv/include/uapi/asm/hwprobe.h
++++ b/arch/riscv/include/uapi/asm/hwprobe.h
+@@ -1,6 +1,6 @@
+ /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+ /*
+- * Copyright 2023 Rivos, Inc
++ * Copyright 2023-2024 Rivos, Inc
+  */
+ 
+ #ifndef _UAPI_ASM_HWPROBE_H
+@@ -82,6 +82,7 @@ struct riscv_hwprobe {
+ #define RISCV_HWPROBE_KEY_ZICBOZ_BLOCK_SIZE	6
+ #define RISCV_HWPROBE_KEY_HIGHEST_VIRT_ADDRESS	7
+ #define RISCV_HWPROBE_KEY_TIME_CSR_FREQ	8
++#define RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0	9
+ /* Increase RISCV_HWPROBE_MAX_KEY when adding items. */
+ 
+ /* Flags */
+diff --git a/arch/riscv/include/uapi/asm/vendor/thead.h b/arch/riscv/include/uapi/asm/vendor/thead.h
+new file mode 100644
+index 000000000000..43790ebe5faf
+--- /dev/null
++++ b/arch/riscv/include/uapi/asm/vendor/thead.h
+@@ -0,0 +1,3 @@
++/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
++
++#define		RISCV_HWPROBE_VENDOR_EXT_XTHEADVECTOR	(1 << 0)
+diff --git a/arch/riscv/kernel/sys_hwprobe.c b/arch/riscv/kernel/sys_hwprobe.c
+index 8d1b5c35d2a7..5a3dc8e66c85 100644
+--- a/arch/riscv/kernel/sys_hwprobe.c
++++ b/arch/riscv/kernel/sys_hwprobe.c
+@@ -15,6 +15,7 @@
+ #include <asm/uaccess.h>
+ #include <asm/unistd.h>
+ #include <asm/vector.h>
++#include <asm/vendor_extensions/thead_hwprobe.h>
+ #include <vdso/vsyscall.h>
+ 
+ 
+@@ -241,6 +242,10 @@ static void hwprobe_one_pair(struct riscv_hwprobe *pair,
+ 		pair->value = riscv_timebase;
+ 		break;
+ 
++	case RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0:
++		hwprobe_isa_vendor_ext_thead_0(pair, cpus);
++		break;
++
+ 	/*
+ 	 * For forward compatibility, unknown keys don't fail the whole
+ 	 * call, but get their element key set to -1 and value set to 0
+diff --git a/arch/riscv/kernel/vendor_extensions/Makefile b/arch/riscv/kernel/vendor_extensions/Makefile
+index 353522cb3bf0..866414c81a9f 100644
+--- a/arch/riscv/kernel/vendor_extensions/Makefile
++++ b/arch/riscv/kernel/vendor_extensions/Makefile
+@@ -2,3 +2,4 @@
+ 
+ obj-$(CONFIG_RISCV_ISA_VENDOR_EXT_ANDES)	+= andes.o
+ obj-$(CONFIG_RISCV_ISA_VENDOR_EXT_THEAD)	+= thead.o
++obj-$(CONFIG_RISCV_ISA_VENDOR_EXT_THEAD)	+= thead_hwprobe.o
+diff --git a/arch/riscv/kernel/vendor_extensions/thead_hwprobe.c b/arch/riscv/kernel/vendor_extensions/thead_hwprobe.c
+new file mode 100644
+index 000000000000..2eba34011786
+--- /dev/null
++++ b/arch/riscv/kernel/vendor_extensions/thead_hwprobe.c
+@@ -0,0 +1,19 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include <asm/vendor_extensions/thead.h>
++#include <asm/vendor_extensions/thead_hwprobe.h>
++#include <asm/vendor_extensions/vendor_hwprobe.h>
++
++#include <linux/cpumask.h>
++#include <linux/types.h>
++
++#include <uapi/asm/hwprobe.h>
++#include <uapi/asm/vendor/thead.h>
++
++void hwprobe_isa_vendor_ext_thead_0(struct riscv_hwprobe *pair, const struct cpumask *cpus)
++{
++	VENDOR_EXTENSION_SUPPORTED(pair, cpus,
++				   riscv_isa_vendor_ext_list_thead.per_hart_isa_bitmap, {
++		VENDOR_EXT_KEY(XTHEADVECTOR);
++	});
++}
+
+From patchwork Wed Aug  7 00:31:47 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755563
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id 58E1EC52D6F
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:32:24 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=4/+Mrb5v6khH7isSMLAJGGeV+oQ1HEWPaA47gpodMX8=; b=1YIhXS3Hjl4yRd
+	9Z7P+bYDhiLm3Me/KbY6JgfSuKUugBMepnuZaVDFdX1xT4MD+SRix1+iH/1kDGaVk5fd/8H0sZXWC
+	EKCfR4pTgGhkdzLi/qZqJY7/TorwOWLzwtb3yBy7YsTY+EFyCT2U0Db0jYaoXQ+mTEGSE4pznhEy3
+	r7oPgxksdt1AoEFXnhb1ccIeMdy3z3MDL5nD35rcesrzV1uoP22djaxqeGUmdZgLQ6HV5IWb3tkRT
+	bJLD3Jzjt0faaNvkIHyCB5jPbc4aI2JWYu3OPCi1GQMoTI8lUylyYS1s8t77gyP16UMChwfxr0dvs
+	8qeQLa9fa9ieRWmeUT5A==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUbE-00000003RBt-2U4J;
+	Wed, 07 Aug 2024 00:32:20 +0000
+Received: from mail-oi1-x232.google.com ([2607:f8b0:4864:20::232])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUb2-00000003R0V-3ZBJ
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:32:12 +0000
+Received: by mail-oi1-x232.google.com with SMTP id
+ 5614622812f47-3db22c02a42so775506b6e.3
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:32:08 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990727;
+ x=1723595527; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=WzA4CLrN9c04I0TkiHjILEnLnNrrRfsvuLr439lHPOs=;
+        b=wWq1EpdctIjS3iog6322+lUVuNoO2GZW83AbnLotLQ3wSOBb+bahB8WM1IKQXm5LO7
+         us6dMR88QapPRDispFViUPebbSI0pqHRVdCF3wuaXpWsPDtPcIM0ai/E7BBPcBFQVz7t
+         q+pOprbwwP1/BJLJap6QFFYyx0q3ArD+w6pMFEB1KJmpEotYl9Jn7xrcta0/XB0OzH+m
+         3GA0KM49blaABesU5EwrlXxTpxf1T6tfau0FV0wXqGR1Dxdp6KyerAp30k46UQEtnfSg
+         XfdjdIvUsaWvybTabctRiztD+IyeoX+XsMF+u28M3xzKeyjRQxw8Xx8ZASyy9yRPkDUL
+         33Cw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990727; x=1723595527;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=WzA4CLrN9c04I0TkiHjILEnLnNrrRfsvuLr439lHPOs=;
+        b=PqKcfKKSHHnd6FqqAsEUHlLxD3eR4nlNkJXuWeBljAi+lP4Hx8PWey7vZGxQ38s877
+         l2dJYm6QLst6DGdo93BgauRBY1h/AEiRr1MKvSt+cxI9Zv1n1hOa0JtqXlDlbMOW6xZ7
+         rOlfVk8ARvc7zv6ZlJd++0DUMYoKkn1QmtmZPHWFlSdzNcE2Epda/mZhSyXs4yYadMR7
+         2RefDpdW18ZK2FJAZWdiKPL/l3jOepOKYh90ya1hklpOztcqj778d6gQPvUGaQfdGaGk
+         krGKtv/apbRz2sEaOEXggPo5ryR7WVE1SOlqOMPUWjjHlNOIxCyVRpQ3RrHdwHYaHe8B
+         DpFw==
+X-Gm-Message-State: AOJu0Yw1KZLRvD9znWhlp7euj1mjz3vY5Hfewcp3tmLew9vG6Uvz5xfa
+	A2fpo/n4k70nZdy24KF6PoNyUiGqCFDCBgXiEAnb3BtSlqtOPg/lf5/aRXY9AVQ=
+X-Google-Smtp-Source: 
+ AGHT+IHqzKeTjTwY0Ng2jkjIMaChA9GIbY2sG0qJ6XgUQbDiYCd/LS4ujzMb8ElUuNWFWcAn/anGOg==
+X-Received: by 2002:a05:6808:d50:b0:3d9:2601:891c with SMTP id
+ 5614622812f47-3db5581fedamr22651422b6e.30.1722990727421;
+        Tue, 06 Aug 2024 17:32:07 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.32.05
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:32:06 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:47 -0700
+Subject: [PATCH v9 11/13] riscv: hwprobe: Document thead vendor extensions
+ and xtheadvector extension
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-11-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=1263;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=R1ruP19VNMYIJ2t74sibaC/YoWJ+uh82rPlu1gqwh/o=;
+ b=vR7egj22DaToCJ0lFeXF/Sk8iuiDix41LIpSDYfvyZJw4L8VcHmi0ndy9Vft4en/hY8js4/nv
+ GniIsQaMb+HDtS7wmY4nAomw3jUjJ6LXwfSjooY3JOkZbazmUMC4IWu
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173208_987579_B464AA84 
+X-CRM114-Status: UNSURE (   8.63  )
+X-CRM114-Notice: Please train this message.
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+Document support for thead vendor extensions using the key
+RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0 and xtheadvector extension using
+the key RISCV_HWPROBE_VENDOR_EXT_XTHEADVECTOR.
+
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+Reviewed-by: Evan Green <evan@rivosinc.com>
+---
+ Documentation/arch/riscv/hwprobe.rst | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/Documentation/arch/riscv/hwprobe.rst b/Documentation/arch/riscv/hwprobe.rst
+index 3db60a0911df..400753d166ee 100644
+--- a/Documentation/arch/riscv/hwprobe.rst
++++ b/Documentation/arch/riscv/hwprobe.rst
+@@ -266,3 +266,13 @@ The following keys are defined:
+   represent the highest userspace virtual address usable.
+ 
+ * :c:macro:`RISCV_HWPROBE_KEY_TIME_CSR_FREQ`: Frequency (in Hz) of `time CSR`.
++
++* :c:macro:`RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0`: A bitmask containing the
++  thead vendor extensions that are compatible with the
++  :c:macro:`RISCV_HWPROBE_BASE_BEHAVIOR_IMA`: base system behavior.
++
++  * T-HEAD
++
++    * :c:macro:`RISCV_HWPROBE_VENDOR_EXT_XTHEADVECTOR`: The xtheadvector vendor
++        extension is supported in the T-Head ISA extensions spec starting from
++	commit a18c801634 ("Add T-Head VECTOR vendor extension. ").
+
+From patchwork Wed Aug  7 00:31:48 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755565
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id CA05FC49EA1
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:32:29 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=nu0CeKX2zVMikz+d0PcUE9DgCwAbeOjt+XPHVC5jH1c=; b=YPdeOqrU/J8EBm
+	bCGdbOoh4RfXM6c5MhKY/r6JmY8WyFjGwq86039JZUSI96LAyunk0OPKAPM8LFsKmgGp07C5YcIQX
+	KAbgBgvYBhhG5B4dUU8BhD1cP2FuqpDg6amhS29IZnEZL/witXoBGMaOxFwdpMI9s6XRPeLDvpVDP
+	ID3OEbsAMqTZ4q5fHMu/gBmHMYeWouEmvDCC2XjS9UlX4VZIDUAJNfCTp/xZiRd6HMgBQ9ksb54b9
+	RoKhkZjil6//fJn0iKaMveI7sq5iGKmkpQBfwmhfDIn338pqq8/d+9d3avT9pO5fVIsoMn+S3aMNx
+	/M83Z+T0O9hCKkCJFkoA==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUbK-00000003RHC-2E6q;
+	Wed, 07 Aug 2024 00:32:26 +0000
+Received: from mail-oi1-x22d.google.com ([2607:f8b0:4864:20::22d])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUb4-00000003R2T-2I5L
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:32:20 +0000
+Received: by mail-oi1-x22d.google.com with SMTP id
+ 5614622812f47-3d9e13ef9aaso768067b6e.1
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:32:10 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990729;
+ x=1723595529; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=OfGwMNaaN7lzjO2AB0iAlYzcDlw0mxC1YLUkpCvPDpY=;
+        b=oOUpUjVSUO0IDGzGYaaUL8w7OS3qyIFVjxuVg9b9uMXmGLP8E8VWfnYRzlA5ryVgsl
+         tM3F2SXKip6EBv+wmwvLTV1A+8Cowa11px0uUPohM7eJ5XQaRv0491LNbIjKr4ueF1s9
+         vVMCMvc01LemdeObluDXJXaRWg/wM0pg5YjImqXbQJTVt2Z6dnVI7LFc2LawuChGrPiS
+         kJNKUf6Lblo5XAR2meEqbeKj/5VW/6Tt8IefRtoiPgenivQ8DAauR0OPl22W/IbbBxfB
+         YWRKjcOm6aPaLs3hj21gXhSA7GBkrcye8WlLALdcvzGzzmP6jtcELDX6el4Hknpw+Hi1
+         8CZg==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990729; x=1723595529;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=OfGwMNaaN7lzjO2AB0iAlYzcDlw0mxC1YLUkpCvPDpY=;
+        b=sFcA7dV/cAIOVMpVI9jLDnsD6CyIwozwXwDpgpRjf/Lcd4ZznrADqsgyBZdIIILYWS
+         lBjLgymY9Q9nqTOYExqu8lHJOUuQS6DPkVuHTuBsYSUeAZLY5YiNYn39bh4TGiMGWBLJ
+         GTiSoFwLsKu6rX7ggRlPybKivo58SKjbTzQEgw4lyVr49c+Nv1nWEqVkShfSWUu26U96
+         DQCiq/qN4IPy0ifaNDg55ia4wEra2jFi+JB9kJSfAVby0VBEVyzLEODBy62huJdLzYbK
+         0qT2u/qdd+ANXMdNynx/MTkgtNvo8+HKy7WMfxkUJfHcvJ/FDNXClcfgDEVYpBqG9l/s
+         91MQ==
+X-Gm-Message-State: AOJu0YwepG7m1FKfvwMFAik76lBJf3a7IpUkJfWC6VvkvkvOY8WubUk8
+	1JkYrad4cgfI7k4O0Izv0/tcTyrMA0xUGTlICWoJIDIX2Vo0TKgJRvIEEBCoGjU=
+X-Google-Smtp-Source: 
+ AGHT+IFnWgNMPzAJbCTzjfeRu18b2ruwb6M7d2qd5GFGTVJs9l3F9e4+QmWFYJa9uBA8gM8qfPCfGg==
+X-Received: by 2002:a05:6870:1595:b0:261:1ad0:5fd3 with SMTP id
+ 586e51a60fabf-26891b2fb8emr21128650fac.15.1722990729557;
+        Tue, 06 Aug 2024 17:32:09 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.32.07
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:32:08 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:48 -0700
+Subject: [PATCH v9 12/13] selftests: riscv: Fix vector tests
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-12-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=19792;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=G18loSJF3wjUKC0fiIddR4KY4ojwxUJpqwitEAsPQlA=;
+ b=8RIHI7CRWSwIpwuOnFMyJVhI70RnDeJ2pzTo+UoPgEQKKNuFiNvHBe9EeCYn20Y7OOjLjlF0x
+ yFUmtEz71QSAdWzixeb9ah775T+RDUXPP5aUG3qWluVkImABdv3OKXC
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173210_743798_08D90352 
+X-CRM114-Status: GOOD (  24.65  )
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+Overhaul the riscv vector tests to use kselftest_harness to help the
+test cases correctly report the results and decouple the individual test
+cases from each other. With this refactoring, only run the test cases if
+vector is reported and properly report the test case as skipped
+otherwise. The v_initval_nolibc test was previously not checking if
+vector was supported and used a function (malloc) which invalidates
+the state of the vector registers.
+
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+---
+ tools/testing/selftests/riscv/vector/.gitignore    |   3 +-
+ tools/testing/selftests/riscv/vector/Makefile      |  17 +-
+ .../selftests/riscv/vector/v_exec_initval_nolibc.c |  85 +++++++
+ tools/testing/selftests/riscv/vector/v_helpers.c   |  57 +++++
+ tools/testing/selftests/riscv/vector/v_helpers.h   |   6 +
+ tools/testing/selftests/riscv/vector/v_initval.c   |  16 ++
+ .../selftests/riscv/vector/v_initval_nolibc.c      |  68 -----
+ .../testing/selftests/riscv/vector/vstate_prctl.c  | 278 ++++++++++++---------
+ 8 files changed, 337 insertions(+), 193 deletions(-)
+
+diff --git a/tools/testing/selftests/riscv/vector/.gitignore b/tools/testing/selftests/riscv/vector/.gitignore
+index 9ae7964491d5..7d9c87cd0649 100644
+--- a/tools/testing/selftests/riscv/vector/.gitignore
++++ b/tools/testing/selftests/riscv/vector/.gitignore
+@@ -1,3 +1,4 @@
+ vstate_exec_nolibc
+ vstate_prctl
+-v_initval_nolibc
++v_initval
++v_exec_initval_nolibc
+diff --git a/tools/testing/selftests/riscv/vector/Makefile b/tools/testing/selftests/riscv/vector/Makefile
+index bfff0ff4f3be..995746359477 100644
+--- a/tools/testing/selftests/riscv/vector/Makefile
++++ b/tools/testing/selftests/riscv/vector/Makefile
+@@ -2,18 +2,27 @@
+ # Copyright (C) 2021 ARM Limited
+ # Originally tools/testing/arm64/abi/Makefile
+ 
+-TEST_GEN_PROGS := vstate_prctl v_initval_nolibc
+-TEST_GEN_PROGS_EXTENDED := vstate_exec_nolibc
++TEST_GEN_PROGS := v_initval vstate_prctl
++TEST_GEN_PROGS_EXTENDED := vstate_exec_nolibc v_exec_initval_nolibc sys_hwprobe.o v_helpers.o
+ 
+ include ../../lib.mk
+ 
+-$(OUTPUT)/vstate_prctl: vstate_prctl.c ../hwprobe/sys_hwprobe.S
++$(OUTPUT)/sys_hwprobe.o: ../hwprobe/sys_hwprobe.S
++	$(CC) -static -c -o$@ $(CFLAGS) $^
++
++$(OUTPUT)/v_helpers.o: v_helpers.c
++	$(CC) -static -c -o$@ $(CFLAGS) $^
++
++$(OUTPUT)/vstate_prctl: vstate_prctl.c $(OUTPUT)/sys_hwprobe.o $(OUTPUT)/v_helpers.o
+ 	$(CC) -static -o$@ $(CFLAGS) $(LDFLAGS) $^
+ 
+ $(OUTPUT)/vstate_exec_nolibc: vstate_exec_nolibc.c
+ 	$(CC) -nostdlib -static -include ../../../../include/nolibc/nolibc.h \
+ 		-Wall $(CFLAGS) $(LDFLAGS) $^ -o $@ -lgcc
+ 
+-$(OUTPUT)/v_initval_nolibc: v_initval_nolibc.c
++$(OUTPUT)/v_initval: v_initval.c $(OUTPUT)/sys_hwprobe.o $(OUTPUT)/v_helpers.o
++	$(CC) -static -o$@ $(CFLAGS) $(LDFLAGS) $^
++
++$(OUTPUT)/v_exec_initval_nolibc: v_exec_initval_nolibc.c
+ 	$(CC) -nostdlib -static -include ../../../../include/nolibc/nolibc.h \
+ 		-Wall $(CFLAGS) $(LDFLAGS) $^ -o $@ -lgcc
+diff --git a/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c b/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c
+new file mode 100644
+index 000000000000..4a39cab29c34
+--- /dev/null
++++ b/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c
+@@ -0,0 +1,85 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Get values of vector registers as soon as the program starts to test if
++ * is properly cleaning the values before starting a new program. Vector
++ * registers are caller saved, so no function calls may happen before reading
++ * the values. To further ensure consistency, this file is compiled without
++ * libc and without auto-vectorization.
++ *
++ * To be "clean" all values must be either all ones or all zeroes.
++ */
++
++#define __stringify_1(x...)	#x
++#define __stringify(x...)	__stringify_1(x)
++
++int main(int argc, char **argv)
++{
++	char prev_value = 0, value;
++	unsigned long vl;
++	int first = 1;
++
++	asm volatile (
++		".option push\n\t"
++		".option arch, +v\n\t"
++		"vsetvli	%[vl], x0, e8, m1, ta, ma\n\t"
++		".option pop\n\t"
++		: [vl] "=r" (vl)
++	);
++
++#define CHECK_VECTOR_REGISTER(register) ({					\
++	for (int i = 0; i < vl; i++) {						\
++		asm volatile (							\
++			".option push\n\t"					\
++			".option arch, +v\n\t"					\
++			"vmv.x.s %0, " __stringify(register) "\n\t"		\
++			"vsrl.vi " __stringify(register) ", " __stringify(register) ", 8\n\t" \
++			".option pop\n\t"					\
++			: "=r" (value));					\
++		if (first) {							\
++			first = 0;						\
++		} else if (value != prev_value || !(value == 0x00 || value == 0xff)) { \
++			printf("Register " __stringify(register)		\
++				" values not clean! value: %u\n", value);	\
++			exit(-1);						\
++		}								\
++		prev_value = value;						\
++	}									\
++})
++
++	CHECK_VECTOR_REGISTER(v0);
++	CHECK_VECTOR_REGISTER(v1);
++	CHECK_VECTOR_REGISTER(v2);
++	CHECK_VECTOR_REGISTER(v3);
++	CHECK_VECTOR_REGISTER(v4);
++	CHECK_VECTOR_REGISTER(v5);
++	CHECK_VECTOR_REGISTER(v6);
++	CHECK_VECTOR_REGISTER(v7);
++	CHECK_VECTOR_REGISTER(v8);
++	CHECK_VECTOR_REGISTER(v9);
++	CHECK_VECTOR_REGISTER(v10);
++	CHECK_VECTOR_REGISTER(v11);
++	CHECK_VECTOR_REGISTER(v12);
++	CHECK_VECTOR_REGISTER(v13);
++	CHECK_VECTOR_REGISTER(v14);
++	CHECK_VECTOR_REGISTER(v15);
++	CHECK_VECTOR_REGISTER(v16);
++	CHECK_VECTOR_REGISTER(v17);
++	CHECK_VECTOR_REGISTER(v18);
++	CHECK_VECTOR_REGISTER(v19);
++	CHECK_VECTOR_REGISTER(v20);
++	CHECK_VECTOR_REGISTER(v21);
++	CHECK_VECTOR_REGISTER(v22);
++	CHECK_VECTOR_REGISTER(v23);
++	CHECK_VECTOR_REGISTER(v24);
++	CHECK_VECTOR_REGISTER(v25);
++	CHECK_VECTOR_REGISTER(v26);
++	CHECK_VECTOR_REGISTER(v27);
++	CHECK_VECTOR_REGISTER(v28);
++	CHECK_VECTOR_REGISTER(v29);
++	CHECK_VECTOR_REGISTER(v30);
++	CHECK_VECTOR_REGISTER(v31);
++
++#undef CHECK_VECTOR_REGISTER
++
++	return 0;
++}
+diff --git a/tools/testing/selftests/riscv/vector/v_helpers.c b/tools/testing/selftests/riscv/vector/v_helpers.c
+new file mode 100644
+index 000000000000..d50f4dfbf9e5
+--- /dev/null
++++ b/tools/testing/selftests/riscv/vector/v_helpers.c
+@@ -0,0 +1,57 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include "../hwprobe/hwprobe.h"
++#include <stdbool.h>
++#include <stdlib.h>
++#include <stdio.h>
++#include <unistd.h>
++#include <sys/wait.h>
++
++bool is_vector_supported(void)
++{
++	struct riscv_hwprobe pair;
++
++	pair.key = RISCV_HWPROBE_KEY_IMA_EXT_0;
++	riscv_hwprobe(&pair, 1, 0, NULL, 0);
++	return pair.value & RISCV_HWPROBE_EXT_ZVE32X;
++}
++
++int launch_test(char *next_program, int test_inherit)
++{
++	char *exec_argv[3], *exec_envp[1];
++	int rc, pid, status;
++
++	pid = fork();
++	if (pid < 0) {
++		printf("fork failed %d", pid);
++		return -1;
++	}
++
++	if (!pid) {
++		exec_argv[0] = next_program;
++		exec_argv[1] = test_inherit != 0 ? "x" : NULL;
++		exec_argv[2] = NULL;
++		exec_envp[0] = NULL;
++		/* launch the program again to check inherit */
++		rc = execve(next_program, exec_argv, exec_envp);
++		if (rc) {
++			perror("execve");
++			printf("child execve failed %d\n", rc);
++			exit(-1);
++		}
++	}
++
++	rc = waitpid(-1, &status, 0);
++	if (rc < 0) {
++		printf("waitpid failed\n");
++		return -3;
++	}
++
++	if ((WIFEXITED(status) && WEXITSTATUS(status) == -1) ||
++	    WIFSIGNALED(status)) {
++		printf("child exited abnormally\n");
++		return -4;
++	}
++
++	return WEXITSTATUS(status);
++}
+diff --git a/tools/testing/selftests/riscv/vector/v_helpers.h b/tools/testing/selftests/riscv/vector/v_helpers.h
+new file mode 100644
+index 000000000000..faeeeb625b6e
+--- /dev/null
++++ b/tools/testing/selftests/riscv/vector/v_helpers.h
+@@ -0,0 +1,6 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#include <stdbool.h>
++
++bool is_vector_supported(void);
++
++int launch_test(char *next_program, int test_inherit);
+diff --git a/tools/testing/selftests/riscv/vector/v_initval.c b/tools/testing/selftests/riscv/vector/v_initval.c
+new file mode 100644
+index 000000000000..f38b5797fa31
+--- /dev/null
++++ b/tools/testing/selftests/riscv/vector/v_initval.c
+@@ -0,0 +1,16 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include "../../kselftest_harness.h"
++#include "v_helpers.h"
++
++#define NEXT_PROGRAM "./v_exec_initval_nolibc"
++
++TEST(v_initval)
++{
++	if (!is_vector_supported())
++		SKIP(return, "Vector not supported");
++
++	ASSERT_EQ(0, launch_test(NEXT_PROGRAM, 0));
++}
++
++TEST_HARNESS_MAIN
+diff --git a/tools/testing/selftests/riscv/vector/v_initval_nolibc.c b/tools/testing/selftests/riscv/vector/v_initval_nolibc.c
+deleted file mode 100644
+index 1dd94197da30..000000000000
+--- a/tools/testing/selftests/riscv/vector/v_initval_nolibc.c
++++ /dev/null
+@@ -1,68 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0-only
+-
+-#include "../../kselftest.h"
+-#define MAX_VSIZE	(8192 * 32)
+-
+-void dump(char *ptr, int size)
+-{
+-	int i = 0;
+-
+-	for (i = 0; i < size; i++) {
+-		if (i != 0) {
+-			if (i % 16 == 0)
+-				printf("\n");
+-			else if (i % 8 == 0)
+-				printf("  ");
+-		}
+-		printf("%02x ", ptr[i]);
+-	}
+-	printf("\n");
+-}
+-
+-int main(void)
+-{
+-	int i;
+-	unsigned long vl;
+-	char *datap, *tmp;
+-
+-	datap = malloc(MAX_VSIZE);
+-	if (!datap) {
+-		ksft_test_result_fail("fail to allocate memory for size = %d\n", MAX_VSIZE);
+-		exit(-1);
+-	}
+-
+-	tmp = datap;
+-	asm volatile (
+-		".option push\n\t"
+-		".option arch, +v\n\t"
+-		"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
+-		"vse8.v		v0, (%2)\n\t"
+-		"add		%1, %2, %0\n\t"
+-		"vse8.v		v8, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v16, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v24, (%1)\n\t"
+-		".option pop\n\t"
+-		: "=&r" (vl), "=r" (tmp) : "r" (datap) : "memory");
+-
+-	ksft_print_msg("vl = %lu\n", vl);
+-
+-	if (datap[0] != 0x00 && datap[0] != 0xff) {
+-		ksft_test_result_fail("v-regesters are not properly initialized\n");
+-		dump(datap, vl * 4);
+-		exit(-1);
+-	}
+-
+-	for (i = 1; i < vl * 4; i++) {
+-		if (datap[i] != datap[0]) {
+-			ksft_test_result_fail("detect stale values on v-regesters\n");
+-			dump(datap, vl * 4);
+-			exit(-2);
+-		}
+-	}
+-
+-	free(datap);
+-	ksft_exit_pass();
+-	return 0;
+-}
+diff --git a/tools/testing/selftests/riscv/vector/vstate_prctl.c b/tools/testing/selftests/riscv/vector/vstate_prctl.c
+index 895177f6bf4c..2fc86924bf42 100644
+--- a/tools/testing/selftests/riscv/vector/vstate_prctl.c
++++ b/tools/testing/selftests/riscv/vector/vstate_prctl.c
+@@ -3,50 +3,13 @@
+ #include <unistd.h>
+ #include <errno.h>
+ #include <sys/wait.h>
++#include <sys/types.h>
++#include <stdlib.h>
+ 
+-#include "../hwprobe/hwprobe.h"
+-#include "../../kselftest.h"
++#include "../../kselftest_harness.h"
++#include "v_helpers.h"
+ 
+ #define NEXT_PROGRAM "./vstate_exec_nolibc"
+-static int launch_test(int test_inherit)
+-{
+-	char *exec_argv[3], *exec_envp[1];
+-	int rc, pid, status;
+-
+-	pid = fork();
+-	if (pid < 0) {
+-		ksft_test_result_fail("fork failed %d", pid);
+-		return -1;
+-	}
+-
+-	if (!pid) {
+-		exec_argv[0] = NEXT_PROGRAM;
+-		exec_argv[1] = test_inherit != 0 ? "x" : NULL;
+-		exec_argv[2] = NULL;
+-		exec_envp[0] = NULL;
+-		/* launch the program again to check inherit */
+-		rc = execve(NEXT_PROGRAM, exec_argv, exec_envp);
+-		if (rc) {
+-			perror("execve");
+-			ksft_test_result_fail("child execve failed %d\n", rc);
+-			exit(-1);
+-		}
+-	}
+-
+-	rc = waitpid(-1, &status, 0);
+-	if (rc < 0) {
+-		ksft_test_result_fail("waitpid failed\n");
+-		return -3;
+-	}
+-
+-	if ((WIFEXITED(status) && WEXITSTATUS(status) == -1) ||
+-	    WIFSIGNALED(status)) {
+-		ksft_test_result_fail("child exited abnormally\n");
+-		return -4;
+-	}
+-
+-	return WEXITSTATUS(status);
+-}
+ 
+ int test_and_compare_child(long provided, long expected, int inherit)
+ {
+@@ -54,128 +17,203 @@ int test_and_compare_child(long provided, long expected, int inherit)
+ 
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, provided);
+ 	if (rc != 0) {
+-		ksft_test_result_fail("prctl with provided arg %lx failed with code %d\n",
+-				      provided, rc);
++		printf("prctl with provided arg %lx failed with code %d\n",
++		       provided, rc);
+ 		return -1;
+ 	}
+-	rc = launch_test(inherit);
++	rc = launch_test(NEXT_PROGRAM, inherit);
+ 	if (rc != expected) {
+-		ksft_test_result_fail("Test failed, check %d != %ld\n", rc,
+-				      expected);
++		printf("Test failed, check %d != %ld\n", rc, expected);
+ 		return -2;
+ 	}
+ 	return 0;
+ }
+ 
+-#define PR_RISCV_V_VSTATE_CTRL_CUR_SHIFT	0
+-#define PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT	2
++#define PR_RISCV_V_VSTATE_CTRL_CUR_SHIFT 0
++#define PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT 2
+ 
+-int main(void)
++TEST(get_control_no_v)
+ {
+-	struct riscv_hwprobe pair;
+-	long flag, expected;
+ 	long rc;
+ 
+-	pair.key = RISCV_HWPROBE_KEY_IMA_EXT_0;
+-	rc = riscv_hwprobe(&pair, 1, 0, NULL, 0);
+-	if (rc < 0) {
+-		ksft_test_result_fail("hwprobe() failed with %ld\n", rc);
+-		return -1;
+-	}
++	if (is_vector_supported())
++		SKIP(return, "Test expects vector to be not supported");
+ 
+-	if (pair.key != RISCV_HWPROBE_KEY_IMA_EXT_0) {
+-		ksft_test_result_fail("hwprobe cannot probe RISCV_HWPROBE_KEY_IMA_EXT_0\n");
+-		return -2;
+-	}
++	rc = prctl(PR_RISCV_V_GET_CONTROL);
++	EXPECT_EQ(-1, rc)
++	TH_LOG("GET_CONTROL should fail on kernel/hw without ZVE32X");
++	EXPECT_EQ(EINVAL, errno)
++	TH_LOG("GET_CONTROL should fail on kernel/hw without ZVE32X");
++}
+ 
+-	if (!(pair.value & RISCV_HWPROBE_EXT_ZVE32X)) {
+-		rc = prctl(PR_RISCV_V_GET_CONTROL);
+-		if (rc != -1 || errno != EINVAL) {
+-			ksft_test_result_fail("GET_CONTROL should fail on kernel/hw without ZVE32X\n");
+-			return -3;
+-		}
+-
+-		rc = prctl(PR_RISCV_V_SET_CONTROL, PR_RISCV_V_VSTATE_CTRL_ON);
+-		if (rc != -1 || errno != EINVAL) {
+-			ksft_test_result_fail("SET_CONTROL should fail on kernel/hw without ZVE32X\n");
+-			return -4;
+-		}
+-
+-		ksft_test_result_skip("Vector not supported\n");
+-		return 0;
+-	}
++TEST(set_control_no_v)
++{
++	long rc;
++
++	if (is_vector_supported())
++		SKIP(return, "Test expects vector to be not supported");
++
++	rc = prctl(PR_RISCV_V_SET_CONTROL, PR_RISCV_V_VSTATE_CTRL_ON);
++	EXPECT_EQ(-1, rc)
++	TH_LOG("SET_CONTROL should fail on kernel/hw without ZVE32X");
++	EXPECT_EQ(EINVAL, errno)
++	TH_LOG("SET_CONTROL should fail on kernel/hw without ZVE32X");
++}
++
++TEST(vstate_on_current)
++{
++	long flag;
++	long rc;
++
++	if (!is_vector_supported())
++		SKIP(return, "Vector not supported");
+ 
+ 	flag = PR_RISCV_V_VSTATE_CTRL_ON;
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, flag);
+-	if (rc != 0) {
+-		ksft_test_result_fail("Enabling V for current should always success\n");
+-		return -5;
+-	}
++	EXPECT_EQ(0, rc) TH_LOG("Enabling V for current should always success");
++}
++
++TEST(vstate_off_eperm)
++{
++	long flag;
++	long rc;
++
++	if (!is_vector_supported())
++		SKIP(return, "Vector not supported");
+ 
+ 	flag = PR_RISCV_V_VSTATE_CTRL_OFF;
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, flag);
+-	if (rc != -1 || errno != EPERM) {
+-		ksft_test_result_fail("Disabling current's V alive must fail with EPERM(%d)\n",
+-				      errno);
+-		return -5;
+-	}
++	EXPECT_EQ(EPERM, errno)
++	TH_LOG("Disabling V in current thread with V enabled must fail with EPERM(%d)", errno);
++	EXPECT_EQ(-1, rc)
++	TH_LOG("Disabling V in current thread with V enabled must fail with EPERM(%d)", errno);
++}
++
++TEST(vstate_on_no_nesting)
++{
++	long flag;
++
++	if (!is_vector_supported())
++		SKIP(return, "Vector not supported");
+ 
+ 	/* Turn on next's vector explicitly and test */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_ON << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+-	if (test_and_compare_child(flag, PR_RISCV_V_VSTATE_CTRL_ON, 0))
+-		return -6;
++
++	EXPECT_EQ(0,
++		  test_and_compare_child(flag, PR_RISCV_V_VSTATE_CTRL_ON, 0));
++}
++
++TEST(vstate_off_nesting)
++{
++	long flag;
++
++	if (!is_vector_supported())
++		SKIP(return, "Vector not supported");
+ 
+ 	/* Turn off next's vector explicitly and test */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_OFF << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+-	if (test_and_compare_child(flag, PR_RISCV_V_VSTATE_CTRL_OFF, 0))
+-		return -7;
++
++	EXPECT_EQ(0,
++		  test_and_compare_child(flag, PR_RISCV_V_VSTATE_CTRL_OFF, 1));
++}
++
++TEST(vstate_on_inherit_no_nesting)
++{
++	long flag, expected;
++
++	if (!is_vector_supported())
++		SKIP(return, "Vector not supported");
++
++	/* Turn on next's vector explicitly and test no inherit */
++	flag = PR_RISCV_V_VSTATE_CTRL_ON << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
++	flag |= PR_RISCV_V_VSTATE_CTRL_INHERIT;
++	expected = flag | PR_RISCV_V_VSTATE_CTRL_ON;
++
++	EXPECT_EQ(0, test_and_compare_child(flag, expected, 0));
++}
++
++TEST(vstate_on_inherit)
++{
++	long flag, expected;
++
++	if (!is_vector_supported())
++		SKIP(return, "Vector not supported");
+ 
+ 	/* Turn on next's vector explicitly and test inherit */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_ON << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+ 	flag |= PR_RISCV_V_VSTATE_CTRL_INHERIT;
+ 	expected = flag | PR_RISCV_V_VSTATE_CTRL_ON;
+-	if (test_and_compare_child(flag, expected, 0))
+-		return -8;
+ 
+-	if (test_and_compare_child(flag, expected, 1))
+-		return -9;
++	EXPECT_EQ(0, test_and_compare_child(flag, expected, 1));
++}
++
++TEST(vstate_off_inherit_no_nesting)
++{
++	long flag, expected;
++
++	if (!is_vector_supported())
++		SKIP(return, "Vector not supported");
++
++	/* Turn off next's vector explicitly and test no inherit */
++	flag = PR_RISCV_V_VSTATE_CTRL_OFF << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
++	flag |= PR_RISCV_V_VSTATE_CTRL_INHERIT;
++	expected = flag | PR_RISCV_V_VSTATE_CTRL_OFF;
++
++	EXPECT_EQ(0, test_and_compare_child(flag, expected, 0));
++}
++
++TEST(vstate_off_inherit)
++{
++	long flag, expected;
++
++	if (!is_vector_supported())
++		SKIP(return, "Vector not supported");
+ 
+ 	/* Turn off next's vector explicitly and test inherit */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_OFF << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+ 	flag |= PR_RISCV_V_VSTATE_CTRL_INHERIT;
+ 	expected = flag | PR_RISCV_V_VSTATE_CTRL_OFF;
+-	if (test_and_compare_child(flag, expected, 0))
+-		return -10;
+ 
+-	if (test_and_compare_child(flag, expected, 1))
+-		return -11;
++	EXPECT_EQ(0, test_and_compare_child(flag, expected, 1));
++}
++
++/* arguments should fail with EINVAL */
++TEST(inval_set_control_1)
++{
++	int rc;
++
++	if (!is_vector_supported())
++		SKIP(return, "Vector not supported");
+ 
+-	/* arguments should fail with EINVAL */
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, 0xff0);
+-	if (rc != -1 || errno != EINVAL) {
+-		ksft_test_result_fail("Undefined control argument should return EINVAL\n");
+-		return -12;
+-	}
++	EXPECT_EQ(-1, rc);
++	EXPECT_EQ(EINVAL, errno);
++}
++
++/* arguments should fail with EINVAL */
++TEST(inval_set_control_2)
++{
++	int rc;
++
++	if (!is_vector_supported())
++		SKIP(return, "Vector not supported");
+ 
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, 0x3);
+-	if (rc != -1 || errno != EINVAL) {
+-		ksft_test_result_fail("Undefined control argument should return EINVAL\n");
+-		return -12;
+-	}
++	EXPECT_EQ(-1, rc);
++	EXPECT_EQ(EINVAL, errno);
++}
+ 
+-	rc = prctl(PR_RISCV_V_SET_CONTROL, 0xc);
+-	if (rc != -1 || errno != EINVAL) {
+-		ksft_test_result_fail("Undefined control argument should return EINVAL\n");
+-		return -12;
+-	}
++/* arguments should fail with EINVAL */
++TEST(inval_set_control_3)
++{
++	int rc;
+ 
+-	rc = prctl(PR_RISCV_V_SET_CONTROL, 0xc);
+-	if (rc != -1 || errno != EINVAL) {
+-		ksft_test_result_fail("Undefined control argument should return EINVAL\n");
+-		return -12;
+-	}
++	if (!is_vector_supported())
++		SKIP(return, "Vector not supported");
+ 
+-	ksft_test_result_pass("tests for riscv_v_vstate_ctrl pass\n");
+-	ksft_exit_pass();
+-	return 0;
++	rc = prctl(PR_RISCV_V_SET_CONTROL, 0xc);
++	EXPECT_EQ(-1, rc);
++	EXPECT_EQ(EINVAL, errno);
+ }
++
++TEST_HARNESS_MAIN
+
+From patchwork Wed Aug  7 00:31:49 2024
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+X-Patchwork-Submitter: Charlie Jenkins <charlie@rivosinc.com>
+X-Patchwork-Id: 13755566
+Return-Path: 
+ <linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org>
+X-Spam-Checker-Version: SpamAssassin 3.4.0 (2014-02-07) on
+	aws-us-west-2-korg-lkml-1.web.codeaurora.org
+Received: from bombadil.infradead.org (bombadil.infradead.org
+ [198.137.202.133])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(No client certificate requested)
+	by smtp.lore.kernel.org (Postfix) with ESMTPS id 74F26C52D6F
+	for <linux-riscv@archiver.kernel.org>; Wed,  7 Aug 2024 00:32:30 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=lists.infradead.org; s=bombadil.20210309; h=Sender:
+	Content-Transfer-Encoding:Content-Type:List-Subscribe:List-Help:List-Post:
+	List-Archive:List-Unsubscribe:List-Id:Cc:To:In-Reply-To:References:Message-Id
+	:MIME-Version:Subject:Date:From:Reply-To:Content-ID:Content-Description:
+	Resent-Date:Resent-From:Resent-Sender:Resent-To:Resent-Cc:Resent-Message-ID:
+	List-Owner; bh=KFF8HTDp8XdU0qGUruwB+WRHacODtSnbhQAB+sGZsg4=; b=oy6vCkHpgyYki7
+	vxEzBxJQ6iI2eECoV1fV9h2x17nT8NJ9yCKZaHhGoHEnhhIIRj+4/kSvFu2P+O1++vYap6aLNNyza
+	6h7XRr8wq22fXsGTb6N2dOiCbZal+bf4O3Q2uNG3raO/Fqc3wdKAKUGXXcTXzHIRsEw8MYm+dZko4
+	fAUDetePqck1veKye0tApufc3sweWL2DO1+3aUNgAbQk8BtVbom/NiidFfjUg3KjlPaMt5DfFMJbQ
+	icFotadsWTDru9Pg9jGq2aiqAX4YV6oxeIsovG2Q4ap/B/iCDpd0OflsQSpTgdUa92iXyiuwuImbs
+	QTbOg94a2xvlnV8NoeBw==;
+Received: from localhost ([::1] helo=bombadil.infradead.org)
+	by bombadil.infradead.org with esmtp (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUbL-00000003RIe-3lK9;
+	Wed, 07 Aug 2024 00:32:27 +0000
+Received: from mail-oi1-x234.google.com ([2607:f8b0:4864:20::234])
+	by bombadil.infradead.org with esmtps (Exim 4.97.1 #2 (Red Hat Linux))
+	id 1sbUb7-00000003R4b-0qM7
+	for linux-riscv@lists.infradead.org;
+	Wed, 07 Aug 2024 00:32:23 +0000
+Received: by mail-oi1-x234.google.com with SMTP id
+ 5614622812f47-3db1e4219f8so730019b6e.3
+        for <linux-riscv@lists.infradead.org>;
+ Tue, 06 Aug 2024 17:32:12 -0700 (PDT)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=rivosinc-com.20230601.gappssmtp.com; s=20230601; t=1722990732;
+ x=1723595532; darn=lists.infradead.org;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:from:to:cc:subject:date:message-id
+         :reply-to;
+        bh=Rl8hTq3snwrtlchQoxOGzkM3W0TMCzfAHv0H42fdImw=;
+        b=J0XJ1vD2g4fqQFXWB93IzUevO+sDx9Muij+5sSB1wl2TxIo38/JWm4Y/4MYsNrEbs+
+         nnxNqoZUb602s3lD+P5xw22p+62SJvoxFxRLOrSeBbbhiqEoS/gwLfGf1b+iMeGzlRgs
+         GHwX0d7TENRDjq3SmWpYoNI2yb89u517vAHbGgI4CTreT/PmDi9OfmZFFTInAZCLywTA
+         5QGyCVPpIwTk5avMnRVTiHySegd99/O7AyeNEGfxDwV95WbkpKKa1OE1xXFL+ygve9Gb
+         rGXO//et7xdbLiUIeRksD4CfPOtnGrIrKWdlurQQ3DX2XPY5LBQUr+1/ZBGCHZA9HpKX
+         XQIw==
+X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=1e100.net; s=20230601; t=1722990732; x=1723595532;
+        h=cc:to:in-reply-to:references:message-id:content-transfer-encoding
+         :mime-version:subject:date:from:x-gm-message-state:from:to:cc
+         :subject:date:message-id:reply-to;
+        bh=Rl8hTq3snwrtlchQoxOGzkM3W0TMCzfAHv0H42fdImw=;
+        b=AiFS3DR/aCZP4bBMCUzXi+zgTBY/REou18GZlJpAevysxZJ9hhmOmpk0TSrNLhI9eN
+         /DeA09CGJ91cJ4m68+5hr4k2EkeSCKrjboZB2539WX0ouh8hS+ez7aZyj4kyWaFMB786
+         OJmoq36OQjJwZ0Rc+83m08ximwG+yxCkVG/hKb5v7umWJ09ACgBBVcQMXCWsO6mpirkI
+         WYGC54Y/Aic49OoLaaQvY/dL47rRIlLsNVakHuWlAx9jTcnJLltoi6/aWIO1pFs/plP3
+         iTrpVVLj1O6sgQY5xL0RqOx+kM99jzW/Zjxbr5XaDDxwpynKv8scR7wmy31cEjqXKJIf
+         V7lQ==
+X-Gm-Message-State: AOJu0YyDhyrp6hAdGNclGq1Ms3NkyiQe0478mRjYVgJndO7s6oVrthMl
+	kYGN8Ro+ZlBWlOMYXNnwmvqAzzzNvGKM0pB6+qKk8Uzu2aZtYeUtpD6+FYSSlpU=
+X-Google-Smtp-Source: 
+ AGHT+IGcthIh4u6gyrmOAL4ejxspwt3Y2ihZRuJEVZ1kgjpHfMeXcyxUvEevQkNjz+nxl7BTMG8NOg==
+X-Received: by 2002:a05:6870:8182:b0:264:8ff7:fb27 with SMTP id
+ 586e51a60fabf-26891af6ffdmr18494269fac.18.1722990731636;
+        Tue, 06 Aug 2024 17:32:11 -0700 (PDT)
+Received: from charlie.ba.rivosinc.com ([64.71.180.162])
+        by smtp.gmail.com with ESMTPSA id
+ 41be03b00d2f7-7b762e9f5aasm7476174a12.6.2024.08.06.17.32.09
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Tue, 06 Aug 2024 17:32:10 -0700 (PDT)
+From: Charlie Jenkins <charlie@rivosinc.com>
+Date: Tue, 06 Aug 2024 17:31:49 -0700
+Subject: [PATCH v9 13/13] selftests: riscv: Support xtheadvector in vector
+ tests
+MIME-Version: 1.0
+Message-Id: <20240806-xtheadvector-v9-13-62a56d2da5d0@rivosinc.com>
+References: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+In-Reply-To: <20240806-xtheadvector-v9-0-62a56d2da5d0@rivosinc.com>
+To: Conor Dooley <conor@kernel.org>, Rob Herring <robh@kernel.org>,
+ Krzysztof Kozlowski <krzk+dt@kernel.org>,
+ Paul Walmsley <paul.walmsley@sifive.com>,
+ Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>,
+ Jisheng Zhang <jszhang@kernel.org>, Chen-Yu Tsai <wens@csie.org>,
+ Jernej Skrabec <jernej.skrabec@gmail.com>,
+ Samuel Holland <samuel@sholland.org>,
+ Samuel Holland <samuel.holland@sifive.com>,
+ Jonathan Corbet <corbet@lwn.net>, Shuah Khan <shuah@kernel.org>,
+ Guo Ren <guoren@kernel.org>, Evan Green <evan@rivosinc.com>,
+ Andy Chiu <andy.chiu@sifive.com>, Jessica Clarke <jrtc27@jrtc27.com>,
+ Andrew Jones <ajones@ventanamicro.com>
+Cc: linux-riscv@lists.infradead.org, devicetree@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-sunxi@lists.linux.dev,
+ linux-doc@vger.kernel.org, linux-kselftest@vger.kernel.org,
+ Charlie Jenkins <charlie@rivosinc.com>
+X-Mailer: b4 0.13.0
+X-Developer-Signature: v=1; a=ed25519-sha256; t=1722990701; l=12867;
+ i=charlie@rivosinc.com; s=20231120; h=from:subject:message-id;
+ bh=r5q5Nx9ziC3kMn5UCdprb8sC68/F7tS+KE0AR3MsHAI=;
+ b=hPLW7rRhcg9qc9qORQBvgcbgnoIqMqHQhfnLwORHNCT3JclhAXdszjxcVZ5I0goTkISZxkPP7
+ NAR8NTEHdClAx+9DHHGf8KFXlzBvAe+/SQ9fSkz/SbFHqT+3QGsBsNB
+X-Developer-Key: i=charlie@rivosinc.com; a=ed25519;
+ pk=t4RSWpMV1q5lf/NWIeR9z58bcje60/dbtxxmoSfBEcs=
+X-CRM114-Version: 20100106-BlameMichelson ( TRE 0.8.0 (BSD) ) MR-646709E3 
+X-CRM114-CacheID: sfid-20240806_173213_532919_EB3F7CBB 
+X-CRM114-Status: GOOD (  19.50  )
+X-BeenThere: linux-riscv@lists.infradead.org
+X-Mailman-Version: 2.1.34
+Precedence: list
+List-Id: <linux-riscv.lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-riscv/>
+List-Post: <mailto:linux-riscv@lists.infradead.org>
+List-Help: <mailto:linux-riscv-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-riscv>,
+ <mailto:linux-riscv-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-riscv" <linux-riscv-bounces@lists.infradead.org>
+Errors-To: 
+ linux-riscv-bounces+linux-riscv=archiver.kernel.org@lists.infradead.org
+
+Extend existing vector tests to be compatible with the xtheadvector
+instructions.
+
+Signed-off-by: Charlie Jenkins <charlie@rivosinc.com>
+---
+ .../selftests/riscv/vector/v_exec_initval_nolibc.c | 23 ++++--
+ tools/testing/selftests/riscv/vector/v_helpers.c   | 17 ++++-
+ tools/testing/selftests/riscv/vector/v_helpers.h   |  4 +-
+ tools/testing/selftests/riscv/vector/v_initval.c   | 12 ++-
+ .../selftests/riscv/vector/vstate_exec_nolibc.c    | 20 +++--
+ .../testing/selftests/riscv/vector/vstate_prctl.c  | 89 ++++++++++++++--------
+ 6 files changed, 113 insertions(+), 52 deletions(-)
+
+diff --git a/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c b/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c
+index 4a39cab29c34..35c0812e32de 100644
+--- a/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c
++++ b/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c
+@@ -18,13 +18,22 @@ int main(int argc, char **argv)
+ 	unsigned long vl;
+ 	int first = 1;
+ 
+-	asm volatile (
+-		".option push\n\t"
+-		".option arch, +v\n\t"
+-		"vsetvli	%[vl], x0, e8, m1, ta, ma\n\t"
+-		".option pop\n\t"
+-		: [vl] "=r" (vl)
+-	);
++	if (argc > 2 && strcmp(argv[2], "x"))
++		asm volatile (
++			// 0 | zimm[10:0] | rs1 | 1 1 1 | rd |1010111| vsetvli
++			// vsetvli	t4, x0, e8, m1, d1
++			".4byte		0b00000000000000000111111011010111\n\t"
++			"mv		%[vl], t4\n\t"
++			: [vl] "=r" (vl) : : "t4"
++		);
++	else
++		asm volatile (
++			".option push\n\t"
++			".option arch, +v\n\t"
++			"vsetvli	%[vl], x0, e8, m1, ta, ma\n\t"
++			".option pop\n\t"
++			: [vl] "=r" (vl)
++		);
+ 
+ #define CHECK_VECTOR_REGISTER(register) ({					\
+ 	for (int i = 0; i < vl; i++) {						\
+diff --git a/tools/testing/selftests/riscv/vector/v_helpers.c b/tools/testing/selftests/riscv/vector/v_helpers.c
+index d50f4dfbf9e5..01a8799dcb78 100644
+--- a/tools/testing/selftests/riscv/vector/v_helpers.c
++++ b/tools/testing/selftests/riscv/vector/v_helpers.c
+@@ -1,12 +1,22 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ 
+ #include "../hwprobe/hwprobe.h"
++#include <asm/vendor/thead.h>
+ #include <stdbool.h>
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <unistd.h>
+ #include <sys/wait.h>
+ 
++bool is_xtheadvector_supported(void)
++{
++	struct riscv_hwprobe pair;
++
++	pair.key = RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0;
++	riscv_hwprobe(&pair, 1, 0, NULL, 0);
++	return pair.value & RISCV_HWPROBE_VENDOR_EXT_XTHEADVECTOR;
++}
++
+ bool is_vector_supported(void)
+ {
+ 	struct riscv_hwprobe pair;
+@@ -16,9 +26,9 @@ bool is_vector_supported(void)
+ 	return pair.value & RISCV_HWPROBE_EXT_ZVE32X;
+ }
+ 
+-int launch_test(char *next_program, int test_inherit)
++int launch_test(char *next_program, int test_inherit, int xtheadvector)
+ {
+-	char *exec_argv[3], *exec_envp[1];
++	char *exec_argv[4], *exec_envp[1];
+ 	int rc, pid, status;
+ 
+ 	pid = fork();
+@@ -30,7 +40,8 @@ int launch_test(char *next_program, int test_inherit)
+ 	if (!pid) {
+ 		exec_argv[0] = next_program;
+ 		exec_argv[1] = test_inherit != 0 ? "x" : NULL;
+-		exec_argv[2] = NULL;
++		exec_argv[2] = xtheadvector != 0 ? "x" : NULL;
++		exec_argv[3] = NULL;
+ 		exec_envp[0] = NULL;
+ 		/* launch the program again to check inherit */
+ 		rc = execve(next_program, exec_argv, exec_envp);
+diff --git a/tools/testing/selftests/riscv/vector/v_helpers.h b/tools/testing/selftests/riscv/vector/v_helpers.h
+index faeeeb625b6e..763cddfe26da 100644
+--- a/tools/testing/selftests/riscv/vector/v_helpers.h
++++ b/tools/testing/selftests/riscv/vector/v_helpers.h
+@@ -1,6 +1,8 @@
+ /* SPDX-License-Identifier: GPL-2.0-only */
+ #include <stdbool.h>
+ 
++bool is_xtheadvector_supported(void);
++
+ bool is_vector_supported(void);
+ 
+-int launch_test(char *next_program, int test_inherit);
++int launch_test(char *next_program, int test_inherit, int xtheadvector);
+diff --git a/tools/testing/selftests/riscv/vector/v_initval.c b/tools/testing/selftests/riscv/vector/v_initval.c
+index f38b5797fa31..be9e1d18ad29 100644
+--- a/tools/testing/selftests/riscv/vector/v_initval.c
++++ b/tools/testing/selftests/riscv/vector/v_initval.c
+@@ -7,10 +7,16 @@
+ 
+ TEST(v_initval)
+ {
+-	if (!is_vector_supported())
+-		SKIP(return, "Vector not supported");
++	int xtheadvector = 0;
+ 
+-	ASSERT_EQ(0, launch_test(NEXT_PROGRAM, 0));
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
++
++	ASSERT_EQ(0, launch_test(NEXT_PROGRAM, 0, xtheadvector));
+ }
+ 
+ TEST_HARNESS_MAIN
+diff --git a/tools/testing/selftests/riscv/vector/vstate_exec_nolibc.c b/tools/testing/selftests/riscv/vector/vstate_exec_nolibc.c
+index 1f9969bed235..7b7d6f21acb4 100644
+--- a/tools/testing/selftests/riscv/vector/vstate_exec_nolibc.c
++++ b/tools/testing/selftests/riscv/vector/vstate_exec_nolibc.c
+@@ -6,13 +6,16 @@
+ 
+ int main(int argc, char **argv)
+ {
+-	int rc, pid, status, test_inherit = 0;
++	int rc, pid, status, test_inherit = 0, xtheadvector = 0;
+ 	long ctrl, ctrl_c;
+ 	char *exec_argv[2], *exec_envp[2];
+ 
+-	if (argc > 1)
++	if (argc > 1 && strcmp(argv[1], "x"))
+ 		test_inherit = 1;
+ 
++	if (argc > 2 && strcmp(argv[2], "x"))
++		xtheadvector = 1;
++
+ 	ctrl = my_syscall1(__NR_prctl, PR_RISCV_V_GET_CONTROL);
+ 	if (ctrl < 0) {
+ 		puts("PR_RISCV_V_GET_CONTROL is not supported\n");
+@@ -53,11 +56,14 @@ int main(int argc, char **argv)
+ 				puts("child's vstate_ctrl not equal to parent's\n");
+ 				exit(-1);
+ 			}
+-			asm volatile (".option push\n\t"
+-				      ".option arch, +v\n\t"
+-				      "vsetvli x0, x0, e32, m8, ta, ma\n\t"
+-				      ".option pop\n\t"
+-				      );
++			if (xtheadvector)
++				asm volatile (".4byte	0x00007ed7");
++			else
++				asm volatile (".option push\n\t"
++					".option arch, +v\n\t"
++					"vsetvli x0, x0, e32, m8, ta, ma\n\t"
++					".option pop\n\t"
++					);
+ 			exit(ctrl);
+ 		}
+ 	}
+diff --git a/tools/testing/selftests/riscv/vector/vstate_prctl.c b/tools/testing/selftests/riscv/vector/vstate_prctl.c
+index 2fc86924bf42..62fbb17a0556 100644
+--- a/tools/testing/selftests/riscv/vector/vstate_prctl.c
++++ b/tools/testing/selftests/riscv/vector/vstate_prctl.c
+@@ -11,7 +11,7 @@
+ 
+ #define NEXT_PROGRAM "./vstate_exec_nolibc"
+ 
+-int test_and_compare_child(long provided, long expected, int inherit)
++int test_and_compare_child(long provided, long expected, int inherit, int xtheadvector)
+ {
+ 	int rc;
+ 
+@@ -21,7 +21,7 @@ int test_and_compare_child(long provided, long expected, int inherit)
+ 		       provided, rc);
+ 		return -1;
+ 	}
+-	rc = launch_test(NEXT_PROGRAM, inherit);
++	rc = launch_test(NEXT_PROGRAM, inherit, xtheadvector);
+ 	if (rc != expected) {
+ 		printf("Test failed, check %d != %ld\n", rc, expected);
+ 		return -2;
+@@ -36,7 +36,7 @@ TEST(get_control_no_v)
+ {
+ 	long rc;
+ 
+-	if (is_vector_supported())
++	if (is_vector_supported() || is_xtheadvector_supported())
+ 		SKIP(return, "Test expects vector to be not supported");
+ 
+ 	rc = prctl(PR_RISCV_V_GET_CONTROL);
+@@ -50,7 +50,7 @@ TEST(set_control_no_v)
+ {
+ 	long rc;
+ 
+-	if (is_vector_supported())
++	if (is_vector_supported() || is_xtheadvector_supported())
+ 		SKIP(return, "Test expects vector to be not supported");
+ 
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, PR_RISCV_V_VSTATE_CTRL_ON);
+@@ -65,12 +65,12 @@ TEST(vstate_on_current)
+ 	long flag;
+ 	long rc;
+ 
+-	if (!is_vector_supported())
++	if (!is_vector_supported() && !is_xtheadvector_supported())
+ 		SKIP(return, "Vector not supported");
+ 
+ 	flag = PR_RISCV_V_VSTATE_CTRL_ON;
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, flag);
+-	EXPECT_EQ(0, rc) TH_LOG("Enabling V for current should always success");
++	EXPECT_EQ(0, rc) TH_LOG("Enabling V for current should always succeed");
+ }
+ 
+ TEST(vstate_off_eperm)
+@@ -78,7 +78,7 @@ TEST(vstate_off_eperm)
+ 	long flag;
+ 	long rc;
+ 
+-	if (!is_vector_supported())
++	if (!is_vector_supported() && !is_xtheadvector_supported())
+ 		SKIP(return, "Vector not supported");
+ 
+ 	flag = PR_RISCV_V_VSTATE_CTRL_OFF;
+@@ -92,89 +92,116 @@ TEST(vstate_off_eperm)
+ TEST(vstate_on_no_nesting)
+ {
+ 	long flag;
++	int xtheadvector = 0;
+ 
+-	if (!is_vector_supported())
+-		SKIP(return, "Vector not supported");
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
+ 
+ 	/* Turn on next's vector explicitly and test */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_ON << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+ 
+-	EXPECT_EQ(0,
+-		  test_and_compare_child(flag, PR_RISCV_V_VSTATE_CTRL_ON, 0));
++	EXPECT_EQ(0, test_and_compare_child(flag, PR_RISCV_V_VSTATE_CTRL_ON, 0, xtheadvector));
+ }
+ 
+ TEST(vstate_off_nesting)
+ {
+ 	long flag;
++	int xtheadvector = 0;
+ 
+-	if (!is_vector_supported())
+-		SKIP(return, "Vector not supported");
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
+ 
+ 	/* Turn off next's vector explicitly and test */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_OFF << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+ 
+-	EXPECT_EQ(0,
+-		  test_and_compare_child(flag, PR_RISCV_V_VSTATE_CTRL_OFF, 1));
++	EXPECT_EQ(0, test_and_compare_child(flag, PR_RISCV_V_VSTATE_CTRL_OFF, 1, xtheadvector));
+ }
+ 
+ TEST(vstate_on_inherit_no_nesting)
+ {
+ 	long flag, expected;
++	int xtheadvector = 0;
+ 
+-	if (!is_vector_supported())
+-		SKIP(return, "Vector not supported");
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
+ 
+ 	/* Turn on next's vector explicitly and test no inherit */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_ON << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+ 	flag |= PR_RISCV_V_VSTATE_CTRL_INHERIT;
+ 	expected = flag | PR_RISCV_V_VSTATE_CTRL_ON;
+ 
+-	EXPECT_EQ(0, test_and_compare_child(flag, expected, 0));
++	EXPECT_EQ(0, test_and_compare_child(flag, expected, 0, xtheadvector));
+ }
+ 
+ TEST(vstate_on_inherit)
+ {
+ 	long flag, expected;
++	int xtheadvector = 0;
+ 
+-	if (!is_vector_supported())
+-		SKIP(return, "Vector not supported");
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
+ 
+ 	/* Turn on next's vector explicitly and test inherit */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_ON << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+ 	flag |= PR_RISCV_V_VSTATE_CTRL_INHERIT;
+ 	expected = flag | PR_RISCV_V_VSTATE_CTRL_ON;
+ 
+-	EXPECT_EQ(0, test_and_compare_child(flag, expected, 1));
++	EXPECT_EQ(0, test_and_compare_child(flag, expected, 1, xtheadvector));
+ }
+ 
+ TEST(vstate_off_inherit_no_nesting)
+ {
+ 	long flag, expected;
++	int xtheadvector = 0;
+ 
+-	if (!is_vector_supported())
+-		SKIP(return, "Vector not supported");
+-
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
+ 	/* Turn off next's vector explicitly and test no inherit */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_OFF << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+ 	flag |= PR_RISCV_V_VSTATE_CTRL_INHERIT;
+ 	expected = flag | PR_RISCV_V_VSTATE_CTRL_OFF;
+ 
+-	EXPECT_EQ(0, test_and_compare_child(flag, expected, 0));
++	EXPECT_EQ(0, test_and_compare_child(flag, expected, 0, xtheadvector));
+ }
+ 
+ TEST(vstate_off_inherit)
+ {
+ 	long flag, expected;
++	int xtheadvector = 0;
+ 
+-	if (!is_vector_supported())
+-		SKIP(return, "Vector not supported");
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
+ 
+ 	/* Turn off next's vector explicitly and test inherit */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_OFF << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+ 	flag |= PR_RISCV_V_VSTATE_CTRL_INHERIT;
+ 	expected = flag | PR_RISCV_V_VSTATE_CTRL_OFF;
+ 
+-	EXPECT_EQ(0, test_and_compare_child(flag, expected, 1));
++	EXPECT_EQ(0, test_and_compare_child(flag, expected, 1, xtheadvector));
+ }
+ 
+ /* arguments should fail with EINVAL */
+@@ -182,7 +209,7 @@ TEST(inval_set_control_1)
+ {
+ 	int rc;
+ 
+-	if (!is_vector_supported())
++	if (!is_vector_supported() && !is_xtheadvector_supported())
+ 		SKIP(return, "Vector not supported");
+ 
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, 0xff0);
+@@ -195,7 +222,7 @@ TEST(inval_set_control_2)
+ {
+ 	int rc;
+ 
+-	if (!is_vector_supported())
++	if (!is_vector_supported() && !is_xtheadvector_supported())
+ 		SKIP(return, "Vector not supported");
+ 
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, 0x3);
+@@ -208,7 +235,7 @@ TEST(inval_set_control_3)
+ {
+ 	int rc;
+ 
+-	if (!is_vector_supported())
++	if (!is_vector_supported() && !is_xtheadvector_supported())
+ 		SKIP(return, "Vector not supported");
+ 
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, 0xc);
