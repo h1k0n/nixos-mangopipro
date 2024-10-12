@@ -1,0 +1,2675 @@
+diff -uNr linux0/arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi linux/arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi
+--- linux0/arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi	2024-10-12 07:18:42.252482790 +0000
++++ linux/arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi	2024-10-12 07:22:04.850214731 +0000
+@@ -27,7 +27,8 @@
+ 			riscv,isa = "rv64imafdc";
+ 			riscv,isa-base = "rv64i";
+ 			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr",
+-					       "zifencei", "zihpm";
++					       "zifencei", "zihpm", "xtheadvector";
++			thead,vlenb = <16>;
+ 			#cooling-cells = <2>;
+ 
+ 			cpu0_intc: interrupt-controller {
+diff -uNr linux0/arch/riscv/include/asm/cpufeature.h linux/arch/riscv/include/asm/cpufeature.h
+--- linux0/arch/riscv/include/asm/cpufeature.h	2024-10-12 07:18:42.272483903 +0000
++++ linux/arch/riscv/include/asm/cpufeature.h	2024-10-12 07:22:04.853548244 +0000
+@@ -31,6 +31,8 @@
+ /* Per-cpu ISA extensions. */
+ extern struct riscv_isainfo hart_isa[NR_CPUS];
+ 
++extern u32 thead_vlenb_of;
++
+ void riscv_user_isa_enable(void);
+ 
+ #define _RISCV_ISA_EXT_DATA(_name, _id, _subset_exts, _subset_exts_size, _validate) {	\
+diff -uNr linux0/arch/riscv/include/asm/csr.h linux/arch/riscv/include/asm/csr.h
+--- linux0/arch/riscv/include/asm/csr.h	2024-10-12 07:18:42.272483903 +0000
++++ linux/arch/riscv/include/asm/csr.h	2024-10-12 07:22:04.856881756 +0000
+@@ -30,6 +30,12 @@
+ #define SR_VS_CLEAN	_AC(0x00000400, UL)
+ #define SR_VS_DIRTY	_AC(0x00000600, UL)
+ 
++#define SR_VS_THEAD		_AC(0x01800000, UL) /* xtheadvector Status */
++#define SR_VS_OFF_THEAD		_AC(0x00000000, UL)
++#define SR_VS_INITIAL_THEAD	_AC(0x00800000, UL)
++#define SR_VS_CLEAN_THEAD	_AC(0x01000000, UL)
++#define SR_VS_DIRTY_THEAD	_AC(0x01800000, UL)
++
+ #define SR_XS		_AC(0x00018000, UL) /* Extension Status */
+ #define SR_XS_OFF	_AC(0x00000000, UL)
+ #define SR_XS_INITIAL	_AC(0x00008000, UL)
+@@ -300,6 +306,15 @@
+ #define CSR_STIMECMP		0x14D
+ #define CSR_STIMECMPH		0x15D
+ 
++/* xtheadvector symbolic CSR names */
++#define CSR_VXSAT		0x9
++#define CSR_VXRM		0xa
++
++/* xtheadvector CSR masks */
++#define CSR_VXRM_MASK		3
++#define CSR_VXRM_SHIFT		1
++#define CSR_VXSAT_MASK		1
++
+ /* Supervisor-Level Window to Indirectly Accessed Registers (AIA) */
+ #define CSR_SISELECT		0x150
+ #define CSR_SIREG		0x151
+diff -uNr linux0/arch/riscv/include/asm/hwprobe.h linux/arch/riscv/include/asm/hwprobe.h
+--- linux0/arch/riscv/include/asm/hwprobe.h	2024-10-12 07:18:42.275817421 +0000
++++ linux/arch/riscv/include/asm/hwprobe.h	2024-10-12 07:22:04.860215269 +0000
+@@ -1,6 +1,6 @@
+ /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+ /*
+- * Copyright 2023 Rivos, Inc
++ * Copyright 2023-2024 Rivos, Inc
+  */
+ 
+ #ifndef _ASM_HWPROBE_H
+@@ -21,6 +21,7 @@
+ 	case RISCV_HWPROBE_KEY_BASE_BEHAVIOR:
+ 	case RISCV_HWPROBE_KEY_IMA_EXT_0:
+ 	case RISCV_HWPROBE_KEY_CPUPERF_0:
++	case RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0:
+ 		return true;
+ 	}
+ 
+diff -uNr linux0/arch/riscv/include/asm/switch_to.h linux/arch/riscv/include/asm/switch_to.h
+--- linux0/arch/riscv/include/asm/switch_to.h	2024-10-12 07:18:42.285817977 +0000
++++ linux/arch/riscv/include/asm/switch_to.h	2024-10-12 07:22:04.856881756 +0000
+@@ -99,7 +99,7 @@
+ 	__set_prev_cpu(__prev->thread);			\
+ 	if (has_fpu())					\
+ 		__switch_to_fpu(__prev, __next);	\
+-	if (has_vector())					\
++	if (has_vector() || has_xtheadvector())		\
+ 		__switch_to_vector(__prev, __next);	\
+ 	if (switch_to_should_flush_icache(__next))	\
+ 		local_flush_icache_all();		\
+diff -uNr linux0/arch/riscv/include/asm/vector.h linux/arch/riscv/include/asm/vector.h
+--- linux0/arch/riscv/include/asm/vector.h	2024-10-12 07:18:42.285817977 +0000
++++ linux/arch/riscv/include/asm/vector.h	2024-10-12 07:22:04.856881756 +0000
+@@ -18,6 +18,27 @@
+ #include <asm/cpufeature.h>
+ #include <asm/csr.h>
+ #include <asm/asm.h>
++#include <asm/vendorid_list.h>
++#include <asm/vendor_extensions.h>
++#include <asm/vendor_extensions/thead.h>
++
++#define __riscv_v_vstate_or(_val, TYPE) ({				\
++	typeof(_val) _res = _val;					\
++	if (has_xtheadvector()) \
++		_res = (_res & ~SR_VS_THEAD) | SR_VS_##TYPE##_THEAD;	\
++	else								\
++		_res = (_res & ~SR_VS) | SR_VS_##TYPE;			\
++	_res;								\
++})
++
++#define __riscv_v_vstate_check(_val, TYPE) ({				\
++	bool _res;							\
++	if (has_xtheadvector()) \
++		_res = ((_val) & SR_VS_THEAD) == SR_VS_##TYPE##_THEAD;	\
++	else								\
++		_res = ((_val) & SR_VS) == SR_VS_##TYPE;		\
++	_res;								\
++})
+ 
+ extern unsigned long riscv_v_vsize;
+ int riscv_v_setup_vsize(void);
+@@ -40,39 +61,62 @@
+ 	return riscv_has_extension_unlikely(RISCV_ISA_EXT_ZVE32X);
+ }
+ 
++static __always_inline bool has_xtheadvector_no_alternatives(void)
++{
++	if (IS_ENABLED(CONFIG_RISCV_ISA_XTHEADVECTOR))
++		return riscv_isa_vendor_extension_available(THEAD_VENDOR_ID, XTHEADVECTOR);
++	else
++		return false;
++}
++
++static __always_inline bool has_xtheadvector(void)
++{
++	if (IS_ENABLED(CONFIG_RISCV_ISA_XTHEADVECTOR))
++		return riscv_has_vendor_extension_unlikely(THEAD_VENDOR_ID,
++							   RISCV_ISA_VENDOR_EXT_XTHEADVECTOR);
++	else
++		return false;
++}
++
+ static inline void __riscv_v_vstate_clean(struct pt_regs *regs)
+ {
+-	regs->status = (regs->status & ~SR_VS) | SR_VS_CLEAN;
++	regs->status = __riscv_v_vstate_or(regs->status, CLEAN);
+ }
+ 
+ static inline void __riscv_v_vstate_dirty(struct pt_regs *regs)
+ {
+-	regs->status = (regs->status & ~SR_VS) | SR_VS_DIRTY;
++	regs->status = __riscv_v_vstate_or(regs->status, DIRTY);
+ }
+ 
+ static inline void riscv_v_vstate_off(struct pt_regs *regs)
+ {
+-	regs->status = (regs->status & ~SR_VS) | SR_VS_OFF;
++	regs->status = __riscv_v_vstate_or(regs->status, OFF);
+ }
+ 
+ static inline void riscv_v_vstate_on(struct pt_regs *regs)
+ {
+-	regs->status = (regs->status & ~SR_VS) | SR_VS_INITIAL;
++	regs->status = __riscv_v_vstate_or(regs->status, INITIAL);
+ }
+ 
+ static inline bool riscv_v_vstate_query(struct pt_regs *regs)
+ {
+-	return (regs->status & SR_VS) != 0;
++	return !__riscv_v_vstate_check(regs->status, OFF);
+ }
+ 
+ static __always_inline void riscv_v_enable(void)
+ {
+-	csr_set(CSR_SSTATUS, SR_VS);
++	if (has_xtheadvector())
++		csr_set(CSR_SSTATUS, SR_VS_THEAD);
++	else
++		csr_set(CSR_SSTATUS, SR_VS);
+ }
+ 
+ static __always_inline void riscv_v_disable(void)
+ {
+-	csr_clear(CSR_SSTATUS, SR_VS);
++	if (has_xtheadvector())
++		csr_clear(CSR_SSTATUS, SR_VS_THEAD);
++	else
++		csr_clear(CSR_SSTATUS, SR_VS);
+ }
+ 
+ static __always_inline void __vstate_csr_save(struct __riscv_v_ext_state *dest)
+@@ -81,10 +125,36 @@
+ 		"csrr	%0, " __stringify(CSR_VSTART) "\n\t"
+ 		"csrr	%1, " __stringify(CSR_VTYPE) "\n\t"
+ 		"csrr	%2, " __stringify(CSR_VL) "\n\t"
+-		"csrr	%3, " __stringify(CSR_VCSR) "\n\t"
+-		"csrr	%4, " __stringify(CSR_VLENB) "\n\t"
+ 		: "=r" (dest->vstart), "=r" (dest->vtype), "=r" (dest->vl),
+-		  "=r" (dest->vcsr), "=r" (dest->vlenb) : :);
++		"=r" (dest->vcsr) : :);
++
++	if (has_xtheadvector()) {
++		unsigned long status;
++
++		/*
++		 * CSR_VCSR is defined as
++		 * [2:1] - vxrm[1:0]
++		 * [0] - vxsat
++		 * The earlier vector spec implemented by T-Head uses separate
++		 * registers for the same bit-elements, so just combine those
++		 * into the existing output field.
++		 *
++		 * Additionally T-Head cores need FS to be enabled when accessing
++		 * the VXRM and VXSAT CSRs, otherwise ending in illegal instructions.
++		 * Though the cores do not implement the VXRM and VXSAT fields in the
++		 * FCSR CSR that vector-0.7.1 specifies.
++		 */
++		status = csr_read_set(CSR_STATUS, SR_FS_DIRTY);
++		dest->vcsr = csr_read(CSR_VXSAT) | csr_read(CSR_VXRM) << CSR_VXRM_SHIFT;
++
++		dest->vlenb = riscv_v_vsize / 32;
++
++		if ((status & SR_FS) != SR_FS_DIRTY)
++			csr_write(CSR_STATUS, status);
++	} else {
++		dest->vcsr = csr_read(CSR_VCSR);
++		dest->vlenb = csr_read(CSR_VLENB);
++	}
+ }
+ 
+ static __always_inline void __vstate_csr_restore(struct __riscv_v_ext_state *src)
+@@ -95,9 +165,25 @@
+ 		"vsetvl	 x0, %2, %1\n\t"
+ 		".option pop\n\t"
+ 		"csrw	" __stringify(CSR_VSTART) ", %0\n\t"
+-		"csrw	" __stringify(CSR_VCSR) ", %3\n\t"
+-		: : "r" (src->vstart), "r" (src->vtype), "r" (src->vl),
+-		    "r" (src->vcsr) :);
++		: : "r" (src->vstart), "r" (src->vtype), "r" (src->vl));
++
++	if (has_xtheadvector()) {
++		unsigned long status = csr_read(CSR_SSTATUS);
++
++		/*
++		 * Similar to __vstate_csr_save above, restore values for the
++		 * separate VXRM and VXSAT CSRs from the vcsr variable.
++		 */
++		status = csr_read_set(CSR_STATUS, SR_FS_DIRTY);
++
++		csr_write(CSR_VXRM, (src->vcsr >> CSR_VXRM_SHIFT) & CSR_VXRM_MASK);
++		csr_write(CSR_VXSAT, src->vcsr & CSR_VXSAT_MASK);
++
++		if ((status & SR_FS) != SR_FS_DIRTY)
++			csr_write(CSR_STATUS, status);
++	} else {
++		csr_write(CSR_VCSR, src->vcsr);
++	}
+ }
+ 
+ static inline void __riscv_v_vstate_save(struct __riscv_v_ext_state *save_to,
+@@ -107,19 +193,33 @@
+ 
+ 	riscv_v_enable();
+ 	__vstate_csr_save(save_to);
+-	asm volatile (
+-		".option push\n\t"
+-		".option arch, +zve32x\n\t"
+-		"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
+-		"vse8.v		v0, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v8, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v16, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v24, (%1)\n\t"
+-		".option pop\n\t"
+-		: "=&r" (vl) : "r" (datap) : "memory");
++	if (has_xtheadvector()) {
++		asm volatile (
++			"mv t0, %0\n\t"
++			THEAD_VSETVLI_T4X0E8M8D1
++			THEAD_VSB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VSB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VSB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VSB_V_V0T0
++			: : "r" (datap) : "memory", "t0", "t4");
++	} else {
++		asm volatile (
++			".option push\n\t"
++			".option arch, +zve32x\n\t"
++			"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
++			"vse8.v		v0, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vse8.v		v8, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vse8.v		v16, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vse8.v		v24, (%1)\n\t"
++			".option pop\n\t"
++			: "=&r" (vl) : "r" (datap) : "memory");
++	}
+ 	riscv_v_disable();
+ }
+ 
+@@ -129,28 +229,51 @@
+ 	unsigned long vl;
+ 
+ 	riscv_v_enable();
+-	asm volatile (
+-		".option push\n\t"
+-		".option arch, +zve32x\n\t"
+-		"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
+-		"vle8.v		v0, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vle8.v		v8, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vle8.v		v16, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vle8.v		v24, (%1)\n\t"
+-		".option pop\n\t"
+-		: "=&r" (vl) : "r" (datap) : "memory");
++	if (has_xtheadvector()) {
++		asm volatile (
++			"mv t0, %0\n\t"
++			THEAD_VSETVLI_T4X0E8M8D1
++			THEAD_VLB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VLB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VLB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VLB_V_V0T0
++			: : "r" (datap) : "memory", "t0", "t4");
++	} else {
++		asm volatile (
++			".option push\n\t"
++			".option arch, +zve32x\n\t"
++			"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
++			"vle8.v		v0, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vle8.v		v8, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vle8.v		v16, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vle8.v		v24, (%1)\n\t"
++			".option pop\n\t"
++			: "=&r" (vl) : "r" (datap) : "memory");
++	}
+ 	__vstate_csr_restore(restore_from);
+ 	riscv_v_disable();
+ }
+ 
+ static inline void __riscv_v_vstate_discard(void)
+ {
+-	unsigned long vl, vtype_inval = 1UL << (BITS_PER_LONG - 1);
++	unsigned long vtype_inval = 1UL << (BITS_PER_LONG - 1);
+ 
+ 	riscv_v_enable();
++	if (has_xtheadvector())
++		asm volatile (THEAD_VSETVLI_X0X0E8M8D1);
++	else
++		asm volatile (
++			".option push\n\t"
++			".option arch, +v\n\t"
++			"vsetvli	x0, x0, e8, m8, ta, ma\n\t"
++			".option pop\n\t");
++
+ 	asm volatile (
+ 		".option push\n\t"
+ 		".option arch, +zve32x\n\t"
+@@ -159,25 +282,25 @@
+ 		"vmv.v.i	v8, -1\n\t"
+ 		"vmv.v.i	v16, -1\n\t"
+ 		"vmv.v.i	v24, -1\n\t"
+-		"vsetvl		%0, x0, %1\n\t"
++		"vsetvl		x0, x0, %0\n\t"
+ 		".option pop\n\t"
+-		: "=&r" (vl) : "r" (vtype_inval) : "memory");
++		: : "r" (vtype_inval));
++
+ 	riscv_v_disable();
+ }
+ 
+ static inline void riscv_v_vstate_discard(struct pt_regs *regs)
+ {
+-	if ((regs->status & SR_VS) == SR_VS_OFF)
+-		return;
+-
+-	__riscv_v_vstate_discard();
+-	__riscv_v_vstate_dirty(regs);
++	if (riscv_v_vstate_query(regs)) {
++		__riscv_v_vstate_discard();
++		__riscv_v_vstate_dirty(regs);
++	}
+ }
+ 
+ static inline void riscv_v_vstate_save(struct __riscv_v_ext_state *vstate,
+ 				       struct pt_regs *regs)
+ {
+-	if ((regs->status & SR_VS) == SR_VS_DIRTY) {
++	if (__riscv_v_vstate_check(regs->status, DIRTY)) {
+ 		__riscv_v_vstate_save(vstate, vstate->datap);
+ 		__riscv_v_vstate_clean(regs);
+ 	}
+@@ -186,7 +309,7 @@
+ static inline void riscv_v_vstate_restore(struct __riscv_v_ext_state *vstate,
+ 					  struct pt_regs *regs)
+ {
+-	if ((regs->status & SR_VS) != SR_VS_OFF) {
++	if (riscv_v_vstate_query(regs)) {
+ 		__riscv_v_vstate_restore(vstate, vstate->datap);
+ 		__riscv_v_vstate_clean(regs);
+ 	}
+@@ -195,7 +318,7 @@
+ static inline void riscv_v_vstate_set_restore(struct task_struct *task,
+ 					      struct pt_regs *regs)
+ {
+-	if ((regs->status & SR_VS) != SR_VS_OFF) {
++	if (riscv_v_vstate_query(regs)) {
+ 		set_tsk_thread_flag(task, TIF_RISCV_V_DEFER_RESTORE);
+ 		riscv_v_vstate_on(regs);
+ 	}
+@@ -268,6 +391,8 @@
+ 
+ static inline int riscv_v_setup_vsize(void) { return -EOPNOTSUPP; }
+ static __always_inline bool has_vector(void) { return false; }
++static __always_inline bool has_xtheadvector_no_alternatives(void) { return false; }
++static __always_inline bool has_xtheadvector(void) { return false; }
+ static inline bool riscv_v_first_use_handler(struct pt_regs *regs) { return false; }
+ static inline bool riscv_v_vstate_query(struct pt_regs *regs) { return false; }
+ static inline bool riscv_v_vstate_ctrl_user_allowed(void) { return false; }
+diff -uNr linux0/arch/riscv/include/asm/vendor_extensions/thead.h linux/arch/riscv/include/asm/vendor_extensions/thead.h
+--- linux0/arch/riscv/include/asm/vendor_extensions/thead.h	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/include/asm/vendor_extensions/thead.h	2024-10-12 07:22:04.856881756 +0000
+@@ -0,0 +1,42 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_H
++#define _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_H
++
++#include <asm/vendor_extensions.h>
++
++#include <linux/types.h>
++
++/*
++ * Extension keys must be strictly less than RISCV_ISA_VENDOR_EXT_MAX.
++ */
++#define RISCV_ISA_VENDOR_EXT_XTHEADVECTOR		0
++
++extern struct riscv_isa_vendor_ext_data_list riscv_isa_vendor_ext_list_thead;
++
++/* Extension specific helpers */
++
++/*
++ * Vector 0.7.1 as used for example on T-Head Xuantie cores, uses an older
++ * encoding for vsetvli (ta, ma vs. d1), so provide an instruction for
++ * vsetvli	t4, x0, e8, m8, d1
++ */
++#define THEAD_VSETVLI_T4X0E8M8D1	".long	0x00307ed7\n\t"
++#define THEAD_VSETVLI_X0X0E8M8D1	".long	0x00307057\n\t"
++
++/*
++ * While in theory, the vector-0.7.1 vsb.v and vlb.v result in the same
++ * encoding as the standard vse8.v and vle8.v, compilers seem to optimize
++ * the call resulting in a different encoding and then using a value for
++ * the "mop" field that is not part of vector-0.7.1
++ * So encode specific variants for vstate_save and _restore.
++ */
++#define THEAD_VSB_V_V0T0		".long	0x02028027\n\t"
++#define THEAD_VSB_V_V8T0		".long	0x02028427\n\t"
++#define THEAD_VSB_V_V16T0		".long	0x02028827\n\t"
++#define THEAD_VSB_V_V24T0		".long	0x02028c27\n\t"
++#define THEAD_VLB_V_V0T0		".long	0x012028007\n\t"
++#define THEAD_VLB_V_V8T0		".long	0x012028407\n\t"
++#define THEAD_VLB_V_V16T0		".long	0x012028807\n\t"
++#define THEAD_VLB_V_V24T0		".long	0x012028c07\n\t"
++
++#endif
+diff -uNr linux0/arch/riscv/include/asm/vendor_extensions/thead_hwprobe.h linux/arch/riscv/include/asm/vendor_extensions/thead_hwprobe.h
+--- linux0/arch/riscv/include/asm/vendor_extensions/thead_hwprobe.h	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/include/asm/vendor_extensions/thead_hwprobe.h	2024-10-12 07:22:04.860215269 +0000
+@@ -0,0 +1,19 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_HWPROBE_H
++#define _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_HWPROBE_H
++
++#include <linux/cpumask.h>
++
++#include <uapi/asm/hwprobe.h>
++
++#ifdef CONFIG_RISCV_ISA_VENDOR_EXT_THEAD
++void hwprobe_isa_vendor_ext_thead_0(struct riscv_hwprobe *pair, const struct cpumask *cpus);
++#else
++static inline void hwprobe_isa_vendor_ext_thead_0(struct riscv_hwprobe *pair,
++						  const struct cpumask *cpus)
++{
++	pair->value = 0;
++}
++#endif
++
++#endif
+diff -uNr linux0/arch/riscv/include/asm/vendor_extensions/vendor_hwprobe.h linux/arch/riscv/include/asm/vendor_extensions/vendor_hwprobe.h
+--- linux0/arch/riscv/include/asm/vendor_extensions/vendor_hwprobe.h	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/include/asm/vendor_extensions/vendor_hwprobe.h	2024-10-12 07:22:04.860215269 +0000
+@@ -0,0 +1,37 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * Copyright 2024 Rivos, Inc
++ */
++
++#ifndef _ASM_RISCV_SYS_HWPROBE_H
++#define _ASM_RISCV_SYS_HWPROBE_H
++
++#include <asm/cpufeature.h>
++
++#define VENDOR_EXT_KEY(ext)								\
++	do {										\
++		if (__riscv_isa_extension_available(isainfo->isa, RISCV_ISA_VENDOR_EXT_##ext)) \
++			pair->value |= RISCV_HWPROBE_VENDOR_EXT_##ext;			\
++		else									\
++			missing |= RISCV_HWPROBE_VENDOR_EXT_##ext;			\
++	} while (false)
++
++/*
++ * Loop through and record extensions that 1) anyone has, and 2) anyone
++ * doesn't have.
++ *
++ * _extension_checks is an arbitrary C block to set the values of pair->value
++ * and missing. It should be filled with VENDOR_EXT_KEY expressions.
++ */
++#define VENDOR_EXTENSION_SUPPORTED(pair, cpus, per_hart_vendor_bitmap, _extension_checks)	\
++	do {											\
++		int cpu;									\
++		u64 missing = 0;								\
++		for_each_cpu(cpu, (cpus)) {							\
++			struct riscv_isavendorinfo *isainfo = &(per_hart_vendor_bitmap)[cpu];	\
++			_extension_checks							\
++		}										\
++		(pair)->value &= ~missing;							\
++	} while (false)										\
++
++#endif /* _ASM_RISCV_SYS_HWPROBE_H */
+diff -uNr linux0/arch/riscv/include/uapi/asm/hwprobe.h linux/arch/riscv/include/uapi/asm/hwprobe.h
+--- linux0/arch/riscv/include/uapi/asm/hwprobe.h	2024-10-12 07:18:42.289151496 +0000
++++ linux/arch/riscv/include/uapi/asm/hwprobe.h	2024-10-12 07:33:26.642343833 +0000
+@@ -1,6 +1,6 @@
+ /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+ /*
+- * Copyright 2023 Rivos, Inc
++ * Copyright 2023-2024 Rivos, Inc
+  */
+ 
+ #ifndef _UAPI_ASM_HWPROBE_H
+@@ -83,6 +83,7 @@
+ #define RISCV_HWPROBE_KEY_HIGHEST_VIRT_ADDRESS	7
+ #define RISCV_HWPROBE_KEY_TIME_CSR_FREQ	8
+ #define RISCV_HWPROBE_KEY_MISALIGNED_SCALAR_PERF	9
++#define RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0   10
+ #define		RISCV_HWPROBE_MISALIGNED_SCALAR_UNKNOWN		0
+ #define		RISCV_HWPROBE_MISALIGNED_SCALAR_EMULATED	1
+ #define		RISCV_HWPROBE_MISALIGNED_SCALAR_SLOW		2
+diff -uNr linux0/arch/riscv/include/uapi/asm/hwprobe.h.orig linux/arch/riscv/include/uapi/asm/hwprobe.h.orig
+--- linux0/arch/riscv/include/uapi/asm/hwprobe.h.orig	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/include/uapi/asm/hwprobe.h.orig	2024-09-15 14:57:56.000000000 +0000
+@@ -0,0 +1,96 @@
++/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
++/*
++ * Copyright 2023 Rivos, Inc
++ */
++
++#ifndef _UAPI_ASM_HWPROBE_H
++#define _UAPI_ASM_HWPROBE_H
++
++#include <linux/types.h>
++
++/*
++ * Interface for probing hardware capabilities from userspace, see
++ * Documentation/arch/riscv/hwprobe.rst for more information.
++ */
++struct riscv_hwprobe {
++	__s64 key;
++	__u64 value;
++};
++
++#define RISCV_HWPROBE_KEY_MVENDORID	0
++#define RISCV_HWPROBE_KEY_MARCHID	1
++#define RISCV_HWPROBE_KEY_MIMPID	2
++#define RISCV_HWPROBE_KEY_BASE_BEHAVIOR	3
++#define		RISCV_HWPROBE_BASE_BEHAVIOR_IMA	(1 << 0)
++#define RISCV_HWPROBE_KEY_IMA_EXT_0	4
++#define		RISCV_HWPROBE_IMA_FD		(1 << 0)
++#define		RISCV_HWPROBE_IMA_C		(1 << 1)
++#define		RISCV_HWPROBE_IMA_V		(1 << 2)
++#define		RISCV_HWPROBE_EXT_ZBA		(1 << 3)
++#define		RISCV_HWPROBE_EXT_ZBB		(1 << 4)
++#define		RISCV_HWPROBE_EXT_ZBS		(1 << 5)
++#define		RISCV_HWPROBE_EXT_ZICBOZ	(1 << 6)
++#define		RISCV_HWPROBE_EXT_ZBC		(1 << 7)
++#define		RISCV_HWPROBE_EXT_ZBKB		(1 << 8)
++#define		RISCV_HWPROBE_EXT_ZBKC		(1 << 9)
++#define		RISCV_HWPROBE_EXT_ZBKX		(1 << 10)
++#define		RISCV_HWPROBE_EXT_ZKND		(1 << 11)
++#define		RISCV_HWPROBE_EXT_ZKNE		(1 << 12)
++#define		RISCV_HWPROBE_EXT_ZKNH		(1 << 13)
++#define		RISCV_HWPROBE_EXT_ZKSED		(1 << 14)
++#define		RISCV_HWPROBE_EXT_ZKSH		(1 << 15)
++#define		RISCV_HWPROBE_EXT_ZKT		(1 << 16)
++#define		RISCV_HWPROBE_EXT_ZVBB		(1 << 17)
++#define		RISCV_HWPROBE_EXT_ZVBC		(1 << 18)
++#define		RISCV_HWPROBE_EXT_ZVKB		(1 << 19)
++#define		RISCV_HWPROBE_EXT_ZVKG		(1 << 20)
++#define		RISCV_HWPROBE_EXT_ZVKNED	(1 << 21)
++#define		RISCV_HWPROBE_EXT_ZVKNHA	(1 << 22)
++#define		RISCV_HWPROBE_EXT_ZVKNHB	(1 << 23)
++#define		RISCV_HWPROBE_EXT_ZVKSED	(1 << 24)
++#define		RISCV_HWPROBE_EXT_ZVKSH		(1 << 25)
++#define		RISCV_HWPROBE_EXT_ZVKT		(1 << 26)
++#define		RISCV_HWPROBE_EXT_ZFH		(1 << 27)
++#define		RISCV_HWPROBE_EXT_ZFHMIN	(1 << 28)
++#define		RISCV_HWPROBE_EXT_ZIHINTNTL	(1 << 29)
++#define		RISCV_HWPROBE_EXT_ZVFH		(1 << 30)
++#define		RISCV_HWPROBE_EXT_ZVFHMIN	(1ULL << 31)
++#define		RISCV_HWPROBE_EXT_ZFA		(1ULL << 32)
++#define		RISCV_HWPROBE_EXT_ZTSO		(1ULL << 33)
++#define		RISCV_HWPROBE_EXT_ZACAS		(1ULL << 34)
++#define		RISCV_HWPROBE_EXT_ZICOND	(1ULL << 35)
++#define		RISCV_HWPROBE_EXT_ZIHINTPAUSE	(1ULL << 36)
++#define		RISCV_HWPROBE_EXT_ZVE32X	(1ULL << 37)
++#define		RISCV_HWPROBE_EXT_ZVE32F	(1ULL << 38)
++#define		RISCV_HWPROBE_EXT_ZVE64X	(1ULL << 39)
++#define		RISCV_HWPROBE_EXT_ZVE64F	(1ULL << 40)
++#define		RISCV_HWPROBE_EXT_ZVE64D	(1ULL << 41)
++#define		RISCV_HWPROBE_EXT_ZIMOP		(1ULL << 42)
++#define		RISCV_HWPROBE_EXT_ZCA		(1ULL << 43)
++#define		RISCV_HWPROBE_EXT_ZCB		(1ULL << 44)
++#define		RISCV_HWPROBE_EXT_ZCD		(1ULL << 45)
++#define		RISCV_HWPROBE_EXT_ZCF		(1ULL << 46)
++#define		RISCV_HWPROBE_EXT_ZCMOP		(1ULL << 47)
++#define		RISCV_HWPROBE_EXT_ZAWRS		(1ULL << 48)
++#define RISCV_HWPROBE_KEY_CPUPERF_0	5
++#define		RISCV_HWPROBE_MISALIGNED_UNKNOWN	(0 << 0)
++#define		RISCV_HWPROBE_MISALIGNED_EMULATED	(1 << 0)
++#define		RISCV_HWPROBE_MISALIGNED_SLOW		(2 << 0)
++#define		RISCV_HWPROBE_MISALIGNED_FAST		(3 << 0)
++#define		RISCV_HWPROBE_MISALIGNED_UNSUPPORTED	(4 << 0)
++#define		RISCV_HWPROBE_MISALIGNED_MASK		(7 << 0)
++#define RISCV_HWPROBE_KEY_ZICBOZ_BLOCK_SIZE	6
++#define RISCV_HWPROBE_KEY_HIGHEST_VIRT_ADDRESS	7
++#define RISCV_HWPROBE_KEY_TIME_CSR_FREQ	8
++#define RISCV_HWPROBE_KEY_MISALIGNED_SCALAR_PERF	9
++#define		RISCV_HWPROBE_MISALIGNED_SCALAR_UNKNOWN		0
++#define		RISCV_HWPROBE_MISALIGNED_SCALAR_EMULATED	1
++#define		RISCV_HWPROBE_MISALIGNED_SCALAR_SLOW		2
++#define		RISCV_HWPROBE_MISALIGNED_SCALAR_FAST		3
++#define		RISCV_HWPROBE_MISALIGNED_SCALAR_UNSUPPORTED	4
++/* Increase RISCV_HWPROBE_MAX_KEY when adding items. */
++
++/* Flags */
++#define RISCV_HWPROBE_WHICH_CPUS	(1 << 0)
++
++#endif
+diff -uNr linux0/arch/riscv/include/uapi/asm/vendor/thead.h linux/arch/riscv/include/uapi/asm/vendor/thead.h
+--- linux0/arch/riscv/include/uapi/asm/vendor/thead.h	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/include/uapi/asm/vendor/thead.h	2024-10-12 07:22:04.860215269 +0000
+@@ -0,0 +1,3 @@
++/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
++
++#define		RISCV_HWPROBE_VENDOR_EXT_XTHEADVECTOR	(1 << 0)
+diff -uNr linux0/arch/riscv/Kconfig.vendor linux/arch/riscv/Kconfig.vendor
+--- linux0/arch/riscv/Kconfig.vendor	2024-10-12 07:18:42.249149271 +0000
++++ linux/arch/riscv/Kconfig.vendor	2024-10-12 07:22:04.853548244 +0000
+@@ -16,4 +16,30 @@
+ 	  If you don't know what to do here, say Y.
+ endmenu
+ 
++menu "T-Head"
++config RISCV_ISA_VENDOR_EXT_THEAD
++	bool "T-Head vendor extension support"
++	select RISCV_ISA_VENDOR_EXT
++	default y
++	help
++	  Say N here to disable detection of and support for all T-Head vendor
++	  extensions. Without this option enabled, T-Head vendor extensions will
++	  not be detected at boot and their presence not reported to userspace.
++
++	  If you don't know what to do here, say Y.
++
++config RISCV_ISA_XTHEADVECTOR
++	bool "xtheadvector extension support"
++	depends on RISCV_ISA_VENDOR_EXT_THEAD
++	depends on RISCV_ISA_V
++	depends on FPU
++	default y
++	help
++	  Say N here if you want to disable all xtheadvector related procedures
++	  in the kernel. This will disable vector for any T-Head board that
++	  contains xtheadvector rather than the standard vector.
++
++	  If you don't know what to do here, say Y.
++endmenu
++
+ endmenu
+diff -uNr linux0/arch/riscv/kernel/cpufeature.c linux/arch/riscv/kernel/cpufeature.c
+--- linux0/arch/riscv/kernel/cpufeature.c	2024-10-12 07:18:42.295818533 +0000
++++ linux/arch/riscv/kernel/cpufeature.c	2024-10-12 07:22:04.856881756 +0000
+@@ -25,6 +25,7 @@
+ #include <asm/sbi.h>
+ #include <asm/vector.h>
+ #include <asm/vendor_extensions.h>
++#include <asm/vendor_extensions/thead.h>
+ 
+ #define NUM_ALPHA_EXTS ('z' - 'a' + 1)
+ 
+@@ -36,6 +37,8 @@
+ /* Per-cpu ISA extensions. */
+ struct riscv_isainfo hart_isa[NR_CPUS];
+ 
++u32 thead_vlenb_of;
++
+ /**
+  * riscv_isa_extension_base() - Get base extension word
+  *
+@@ -769,6 +772,46 @@
+ 	}
+ }
+ 
++static int has_thead_homogeneous_vlenb(void)
++{
++	int cpu;
++	u32 prev_vlenb = 0;
++	u32 vlenb;
++
++	/* Ignore thead,vlenb property if xtheavector is not enabled in the kernel */
++	if (!IS_ENABLED(CONFIG_RISCV_ISA_XTHEADVECTOR))
++		return 0;
++
++	for_each_possible_cpu(cpu) {
++		struct device_node *cpu_node;
++
++		cpu_node = of_cpu_device_node_get(cpu);
++		if (!cpu_node) {
++			pr_warn("Unable to find cpu node\n");
++			return -ENOENT;
++		}
++
++		if (of_property_read_u32(cpu_node, "thead,vlenb", &vlenb)) {
++			of_node_put(cpu_node);
++
++			if (prev_vlenb)
++				return -ENOENT;
++			continue;
++		}
++
++		if (prev_vlenb && vlenb != prev_vlenb) {
++			of_node_put(cpu_node);
++			return -ENOENT;
++		}
++
++		prev_vlenb = vlenb;
++		of_node_put(cpu_node);
++	}
++
++	thead_vlenb_of = vlenb;
++	return 0;
++}
++
+ static int __init riscv_fill_hwcap_from_ext_list(unsigned long *isa2hwcap)
+ {
+ 	unsigned int cpu;
+@@ -822,6 +865,12 @@
+ 		riscv_fill_vendor_ext_list(cpu);
+ 	}
+ 
++	if (riscv_isa_vendor_extension_available(THEAD_VENDOR_ID, XTHEADVECTOR) &&
++	    has_thead_homogeneous_vlenb() < 0) {
++		pr_warn("Unsupported heterogeneous vlenb detected, vector extension disabled.\n");
++		elf_hwcap &= ~COMPAT_HWCAP_ISA_V;
++	}
++
+ 	if (bitmap_empty(riscv_isa, RISCV_ISA_EXT_MAX))
+ 		return -ENOENT;
+ 
+@@ -874,7 +923,8 @@
+ 		elf_hwcap &= ~COMPAT_HWCAP_ISA_F;
+ 	}
+ 
+-	if (__riscv_isa_extension_available(NULL, RISCV_ISA_EXT_ZVE32X)) {
++	if (__riscv_isa_extension_available(NULL, RISCV_ISA_EXT_ZVE32X) ||
++	    has_xtheadvector_no_alternatives()) {
+ 		/*
+ 		 * This cannot fail when called on the boot hart
+ 		 */
+diff -uNr linux0/arch/riscv/kernel/kernel_mode_vector.c linux/arch/riscv/kernel/kernel_mode_vector.c
+--- linux0/arch/riscv/kernel/kernel_mode_vector.c	2024-10-12 07:18:42.299152052 +0000
++++ linux/arch/riscv/kernel/kernel_mode_vector.c	2024-10-12 07:22:04.856881756 +0000
+@@ -143,7 +143,7 @@
+ 
+ 	/* Transfer the ownership of V from user to kernel, then save */
+ 	riscv_v_start(RISCV_PREEMPT_V | RISCV_PREEMPT_V_DIRTY);
+-	if ((task_pt_regs(current)->status & SR_VS) == SR_VS_DIRTY) {
++	if (__riscv_v_vstate_check(task_pt_regs(current)->status, DIRTY)) {
+ 		uvstate = &current->thread.vstate;
+ 		__riscv_v_vstate_save(uvstate, uvstate->datap);
+ 	}
+@@ -160,7 +160,7 @@
+ 		return;
+ 
+ 	depth = riscv_v_ctx_get_depth();
+-	if (depth == 0 && (regs->status & SR_VS) == SR_VS_DIRTY)
++	if (depth == 0 && __riscv_v_vstate_check(regs->status, DIRTY))
+ 		riscv_preempt_v_set_dirty();
+ 
+ 	riscv_v_ctx_depth_inc();
+@@ -208,7 +208,7 @@
+ {
+ 	bool nested = false;
+ 
+-	if (WARN_ON(!has_vector()))
++	if (WARN_ON(!(has_vector() || has_xtheadvector())))
+ 		return;
+ 
+ 	BUG_ON(!may_use_simd());
+@@ -236,7 +236,7 @@
+  */
+ void kernel_vector_end(void)
+ {
+-	if (WARN_ON(!has_vector()))
++	if (WARN_ON(!(has_vector() || has_xtheadvector())))
+ 		return;
+ 
+ 	riscv_v_disable();
+diff -uNr linux0/arch/riscv/kernel/process.c linux/arch/riscv/kernel/process.c
+--- linux0/arch/riscv/kernel/process.c	2024-10-12 07:18:42.302485571 +0000
++++ linux/arch/riscv/kernel/process.c	2024-10-12 07:22:04.856881756 +0000
+@@ -176,7 +176,7 @@
+ void arch_release_task_struct(struct task_struct *tsk)
+ {
+ 	/* Free the vector context of datap. */
+-	if (has_vector())
++	if (has_vector() || has_xtheadvector())
+ 		riscv_v_thread_free(tsk);
+ }
+ 
+@@ -222,7 +222,7 @@
+ 		p->thread.s[0] = 0;
+ 	}
+ 	p->thread.riscv_v_flags = 0;
+-	if (has_vector())
++	if (has_vector() || has_xtheadvector())
+ 		riscv_v_thread_alloc(p);
+ 	p->thread.ra = (unsigned long)ret_from_fork;
+ 	p->thread.sp = (unsigned long)childregs; /* kernel sp */
+diff -uNr linux0/arch/riscv/kernel/signal.c linux/arch/riscv/kernel/signal.c
+--- linux0/arch/riscv/kernel/signal.c	2024-10-12 07:18:42.305819090 +0000
++++ linux/arch/riscv/kernel/signal.c	2024-10-12 07:22:04.856881756 +0000
+@@ -189,7 +189,7 @@
+ 
+ 			return 0;
+ 		case RISCV_V_MAGIC:
+-			if (!has_vector() || !riscv_v_vstate_query(regs) ||
++			if (!(has_vector() || has_xtheadvector()) || !riscv_v_vstate_query(regs) ||
+ 			    size != riscv_v_sc_size)
+ 				return -EINVAL;
+ 
+@@ -211,7 +211,7 @@
+ 
+ 	frame_size = sizeof(*frame);
+ 
+-	if (has_vector()) {
++	if (has_vector() || has_xtheadvector()) {
+ 		if (cal_all || riscv_v_vstate_query(task_pt_regs(current)))
+ 			total_context_size += riscv_v_sc_size;
+ 	}
+@@ -284,7 +284,7 @@
+ 	if (has_fpu())
+ 		err |= save_fp_state(regs, &sc->sc_fpregs);
+ 	/* Save the vector state. */
+-	if (has_vector() && riscv_v_vstate_query(regs))
++	if ((has_vector() || has_xtheadvector()) && riscv_v_vstate_query(regs))
+ 		err |= save_v_state(regs, (void __user **)&sc_ext_ptr);
+ 	/* Write zero to fp-reserved space and check it on restore_sigcontext */
+ 	err |= __put_user(0, &sc->sc_extdesc.reserved);
+diff -uNr linux0/arch/riscv/kernel/sys_hwprobe.c linux/arch/riscv/kernel/sys_hwprobe.c
+--- linux0/arch/riscv/kernel/sys_hwprobe.c	2024-10-12 07:18:42.305819090 +0000
++++ linux/arch/riscv/kernel/sys_hwprobe.c	2024-10-12 07:22:04.860215269 +0000
+@@ -15,6 +15,7 @@
+ #include <asm/uaccess.h>
+ #include <asm/unistd.h>
+ #include <asm/vector.h>
++#include <asm/vendor_extensions/thead_hwprobe.h>
+ #include <vdso/vsyscall.h>
+ 
+ 
+@@ -242,6 +243,10 @@
+ 		pair->value = riscv_timebase;
+ 		break;
+ 
++	case RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0:
++		hwprobe_isa_vendor_ext_thead_0(pair, cpus);
++		break;
++
+ 	/*
+ 	 * For forward compatibility, unknown keys don't fail the whole
+ 	 * call, but get their element key set to -1 and value set to 0
+diff -uNr linux0/arch/riscv/kernel/sys_hwprobe.c.orig linux/arch/riscv/kernel/sys_hwprobe.c.orig
+--- linux0/arch/riscv/kernel/sys_hwprobe.c.orig	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/kernel/sys_hwprobe.c.orig	2024-09-15 14:57:56.000000000 +0000
+@@ -0,0 +1,450 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * The hwprobe interface, for allowing userspace to probe to see which features
++ * are supported by the hardware.  See Documentation/arch/riscv/hwprobe.rst for
++ * more details.
++ */
++#include <linux/syscalls.h>
++#include <asm/cacheflush.h>
++#include <asm/cpufeature.h>
++#include <asm/hwprobe.h>
++#include <asm/processor.h>
++#include <asm/delay.h>
++#include <asm/sbi.h>
++#include <asm/switch_to.h>
++#include <asm/uaccess.h>
++#include <asm/unistd.h>
++#include <asm/vector.h>
++#include <vdso/vsyscall.h>
++
++
++static void hwprobe_arch_id(struct riscv_hwprobe *pair,
++			    const struct cpumask *cpus)
++{
++	u64 id = -1ULL;
++	bool first = true;
++	int cpu;
++
++	for_each_cpu(cpu, cpus) {
++		u64 cpu_id;
++
++		switch (pair->key) {
++		case RISCV_HWPROBE_KEY_MVENDORID:
++			cpu_id = riscv_cached_mvendorid(cpu);
++			break;
++		case RISCV_HWPROBE_KEY_MIMPID:
++			cpu_id = riscv_cached_mimpid(cpu);
++			break;
++		case RISCV_HWPROBE_KEY_MARCHID:
++			cpu_id = riscv_cached_marchid(cpu);
++			break;
++		}
++
++		if (first) {
++			id = cpu_id;
++			first = false;
++		}
++
++		/*
++		 * If there's a mismatch for the given set, return -1 in the
++		 * value.
++		 */
++		if (id != cpu_id) {
++			id = -1ULL;
++			break;
++		}
++	}
++
++	pair->value = id;
++}
++
++static void hwprobe_isa_ext0(struct riscv_hwprobe *pair,
++			     const struct cpumask *cpus)
++{
++	int cpu;
++	u64 missing = 0;
++
++	pair->value = 0;
++	if (has_fpu())
++		pair->value |= RISCV_HWPROBE_IMA_FD;
++
++	if (riscv_isa_extension_available(NULL, c))
++		pair->value |= RISCV_HWPROBE_IMA_C;
++
++	if (has_vector() && riscv_isa_extension_available(NULL, v))
++		pair->value |= RISCV_HWPROBE_IMA_V;
++
++	/*
++	 * Loop through and record extensions that 1) anyone has, and 2) anyone
++	 * doesn't have.
++	 */
++	for_each_cpu(cpu, cpus) {
++		struct riscv_isainfo *isainfo = &hart_isa[cpu];
++
++#define EXT_KEY(ext)									\
++	do {										\
++		if (__riscv_isa_extension_available(isainfo->isa, RISCV_ISA_EXT_##ext))	\
++			pair->value |= RISCV_HWPROBE_EXT_##ext;				\
++		else									\
++			missing |= RISCV_HWPROBE_EXT_##ext;				\
++	} while (false)
++
++		/*
++		 * Only use EXT_KEY() for extensions which can be exposed to userspace,
++		 * regardless of the kernel's configuration, as no other checks, besides
++		 * presence in the hart_isa bitmap, are made.
++		 */
++		EXT_KEY(ZACAS);
++		EXT_KEY(ZAWRS);
++		EXT_KEY(ZBA);
++		EXT_KEY(ZBB);
++		EXT_KEY(ZBC);
++		EXT_KEY(ZBKB);
++		EXT_KEY(ZBKC);
++		EXT_KEY(ZBKX);
++		EXT_KEY(ZBS);
++		EXT_KEY(ZCA);
++		EXT_KEY(ZCB);
++		EXT_KEY(ZCMOP);
++		EXT_KEY(ZICBOZ);
++		EXT_KEY(ZICOND);
++		EXT_KEY(ZIHINTNTL);
++		EXT_KEY(ZIHINTPAUSE);
++		EXT_KEY(ZIMOP);
++		EXT_KEY(ZKND);
++		EXT_KEY(ZKNE);
++		EXT_KEY(ZKNH);
++		EXT_KEY(ZKSED);
++		EXT_KEY(ZKSH);
++		EXT_KEY(ZKT);
++		EXT_KEY(ZTSO);
++
++		/*
++		 * All the following extensions must depend on the kernel
++		 * support of V.
++		 */
++		if (has_vector()) {
++			EXT_KEY(ZVBB);
++			EXT_KEY(ZVBC);
++			EXT_KEY(ZVE32F);
++			EXT_KEY(ZVE32X);
++			EXT_KEY(ZVE64D);
++			EXT_KEY(ZVE64F);
++			EXT_KEY(ZVE64X);
++			EXT_KEY(ZVFH);
++			EXT_KEY(ZVFHMIN);
++			EXT_KEY(ZVKB);
++			EXT_KEY(ZVKG);
++			EXT_KEY(ZVKNED);
++			EXT_KEY(ZVKNHA);
++			EXT_KEY(ZVKNHB);
++			EXT_KEY(ZVKSED);
++			EXT_KEY(ZVKSH);
++			EXT_KEY(ZVKT);
++		}
++
++		if (has_fpu()) {
++			EXT_KEY(ZCD);
++			EXT_KEY(ZCF);
++			EXT_KEY(ZFA);
++			EXT_KEY(ZFH);
++			EXT_KEY(ZFHMIN);
++		}
++#undef EXT_KEY
++	}
++
++	/* Now turn off reporting features if any CPU is missing it. */
++	pair->value &= ~missing;
++}
++
++static bool hwprobe_ext0_has(const struct cpumask *cpus, unsigned long ext)
++{
++	struct riscv_hwprobe pair;
++
++	hwprobe_isa_ext0(&pair, cpus);
++	return (pair.value & ext);
++}
++
++#if defined(CONFIG_RISCV_PROBE_UNALIGNED_ACCESS)
++static u64 hwprobe_misaligned(const struct cpumask *cpus)
++{
++	int cpu;
++	u64 perf = -1ULL;
++
++	for_each_cpu(cpu, cpus) {
++		int this_perf = per_cpu(misaligned_access_speed, cpu);
++
++		if (perf == -1ULL)
++			perf = this_perf;
++
++		if (perf != this_perf) {
++			perf = RISCV_HWPROBE_MISALIGNED_SCALAR_UNKNOWN;
++			break;
++		}
++	}
++
++	if (perf == -1ULL)
++		return RISCV_HWPROBE_MISALIGNED_SCALAR_UNKNOWN;
++
++	return perf;
++}
++#else
++static u64 hwprobe_misaligned(const struct cpumask *cpus)
++{
++	if (IS_ENABLED(CONFIG_RISCV_EFFICIENT_UNALIGNED_ACCESS))
++		return RISCV_HWPROBE_MISALIGNED_SCALAR_FAST;
++
++	if (IS_ENABLED(CONFIG_RISCV_EMULATED_UNALIGNED_ACCESS) && unaligned_ctl_available())
++		return RISCV_HWPROBE_MISALIGNED_SCALAR_EMULATED;
++
++	return RISCV_HWPROBE_MISALIGNED_SCALAR_SLOW;
++}
++#endif
++
++static void hwprobe_one_pair(struct riscv_hwprobe *pair,
++			     const struct cpumask *cpus)
++{
++	switch (pair->key) {
++	case RISCV_HWPROBE_KEY_MVENDORID:
++	case RISCV_HWPROBE_KEY_MARCHID:
++	case RISCV_HWPROBE_KEY_MIMPID:
++		hwprobe_arch_id(pair, cpus);
++		break;
++	/*
++	 * The kernel already assumes that the base single-letter ISA
++	 * extensions are supported on all harts, and only supports the
++	 * IMA base, so just cheat a bit here and tell that to
++	 * userspace.
++	 */
++	case RISCV_HWPROBE_KEY_BASE_BEHAVIOR:
++		pair->value = RISCV_HWPROBE_BASE_BEHAVIOR_IMA;
++		break;
++
++	case RISCV_HWPROBE_KEY_IMA_EXT_0:
++		hwprobe_isa_ext0(pair, cpus);
++		break;
++
++	case RISCV_HWPROBE_KEY_CPUPERF_0:
++	case RISCV_HWPROBE_KEY_MISALIGNED_SCALAR_PERF:
++		pair->value = hwprobe_misaligned(cpus);
++		break;
++
++	case RISCV_HWPROBE_KEY_ZICBOZ_BLOCK_SIZE:
++		pair->value = 0;
++		if (hwprobe_ext0_has(cpus, RISCV_HWPROBE_EXT_ZICBOZ))
++			pair->value = riscv_cboz_block_size;
++		break;
++	case RISCV_HWPROBE_KEY_HIGHEST_VIRT_ADDRESS:
++		pair->value = user_max_virt_addr();
++		break;
++
++	case RISCV_HWPROBE_KEY_TIME_CSR_FREQ:
++		pair->value = riscv_timebase;
++		break;
++
++	/*
++	 * For forward compatibility, unknown keys don't fail the whole
++	 * call, but get their element key set to -1 and value set to 0
++	 * indicating they're unrecognized.
++	 */
++	default:
++		pair->key = -1;
++		pair->value = 0;
++		break;
++	}
++}
++
++static int hwprobe_get_values(struct riscv_hwprobe __user *pairs,
++			      size_t pair_count, size_t cpusetsize,
++			      unsigned long __user *cpus_user,
++			      unsigned int flags)
++{
++	size_t out;
++	int ret;
++	cpumask_t cpus;
++
++	/* Check the reserved flags. */
++	if (flags != 0)
++		return -EINVAL;
++
++	/*
++	 * The interface supports taking in a CPU mask, and returns values that
++	 * are consistent across that mask. Allow userspace to specify NULL and
++	 * 0 as a shortcut to all online CPUs.
++	 */
++	cpumask_clear(&cpus);
++	if (!cpusetsize && !cpus_user) {
++		cpumask_copy(&cpus, cpu_online_mask);
++	} else {
++		if (cpusetsize > cpumask_size())
++			cpusetsize = cpumask_size();
++
++		ret = copy_from_user(&cpus, cpus_user, cpusetsize);
++		if (ret)
++			return -EFAULT;
++
++		/*
++		 * Userspace must provide at least one online CPU, without that
++		 * there's no way to define what is supported.
++		 */
++		cpumask_and(&cpus, &cpus, cpu_online_mask);
++		if (cpumask_empty(&cpus))
++			return -EINVAL;
++	}
++
++	for (out = 0; out < pair_count; out++, pairs++) {
++		struct riscv_hwprobe pair;
++
++		if (get_user(pair.key, &pairs->key))
++			return -EFAULT;
++
++		pair.value = 0;
++		hwprobe_one_pair(&pair, &cpus);
++		ret = put_user(pair.key, &pairs->key);
++		if (ret == 0)
++			ret = put_user(pair.value, &pairs->value);
++
++		if (ret)
++			return -EFAULT;
++	}
++
++	return 0;
++}
++
++static int hwprobe_get_cpus(struct riscv_hwprobe __user *pairs,
++			    size_t pair_count, size_t cpusetsize,
++			    unsigned long __user *cpus_user,
++			    unsigned int flags)
++{
++	cpumask_t cpus, one_cpu;
++	bool clear_all = false;
++	size_t i;
++	int ret;
++
++	if (flags != RISCV_HWPROBE_WHICH_CPUS)
++		return -EINVAL;
++
++	if (!cpusetsize || !cpus_user)
++		return -EINVAL;
++
++	if (cpusetsize > cpumask_size())
++		cpusetsize = cpumask_size();
++
++	ret = copy_from_user(&cpus, cpus_user, cpusetsize);
++	if (ret)
++		return -EFAULT;
++
++	if (cpumask_empty(&cpus))
++		cpumask_copy(&cpus, cpu_online_mask);
++
++	cpumask_and(&cpus, &cpus, cpu_online_mask);
++
++	cpumask_clear(&one_cpu);
++
++	for (i = 0; i < pair_count; i++) {
++		struct riscv_hwprobe pair, tmp;
++		int cpu;
++
++		ret = copy_from_user(&pair, &pairs[i], sizeof(pair));
++		if (ret)
++			return -EFAULT;
++
++		if (!riscv_hwprobe_key_is_valid(pair.key)) {
++			clear_all = true;
++			pair = (struct riscv_hwprobe){ .key = -1, };
++			ret = copy_to_user(&pairs[i], &pair, sizeof(pair));
++			if (ret)
++				return -EFAULT;
++		}
++
++		if (clear_all)
++			continue;
++
++		tmp = (struct riscv_hwprobe){ .key = pair.key, };
++
++		for_each_cpu(cpu, &cpus) {
++			cpumask_set_cpu(cpu, &one_cpu);
++
++			hwprobe_one_pair(&tmp, &one_cpu);
++
++			if (!riscv_hwprobe_pair_cmp(&tmp, &pair))
++				cpumask_clear_cpu(cpu, &cpus);
++
++			cpumask_clear_cpu(cpu, &one_cpu);
++		}
++	}
++
++	if (clear_all)
++		cpumask_clear(&cpus);
++
++	ret = copy_to_user(cpus_user, &cpus, cpusetsize);
++	if (ret)
++		return -EFAULT;
++
++	return 0;
++}
++
++static int do_riscv_hwprobe(struct riscv_hwprobe __user *pairs,
++			    size_t pair_count, size_t cpusetsize,
++			    unsigned long __user *cpus_user,
++			    unsigned int flags)
++{
++	if (flags & RISCV_HWPROBE_WHICH_CPUS)
++		return hwprobe_get_cpus(pairs, pair_count, cpusetsize,
++					cpus_user, flags);
++
++	return hwprobe_get_values(pairs, pair_count, cpusetsize,
++				  cpus_user, flags);
++}
++
++#ifdef CONFIG_MMU
++
++static int __init init_hwprobe_vdso_data(void)
++{
++	struct vdso_data *vd = __arch_get_k_vdso_data();
++	struct arch_vdso_data *avd = &vd->arch_data;
++	u64 id_bitsmash = 0;
++	struct riscv_hwprobe pair;
++	int key;
++
++	/*
++	 * Initialize vDSO data with the answers for the "all CPUs" case, to
++	 * save a syscall in the common case.
++	 */
++	for (key = 0; key <= RISCV_HWPROBE_MAX_KEY; key++) {
++		pair.key = key;
++		hwprobe_one_pair(&pair, cpu_online_mask);
++
++		WARN_ON_ONCE(pair.key < 0);
++
++		avd->all_cpu_hwprobe_values[key] = pair.value;
++		/*
++		 * Smash together the vendor, arch, and impl IDs to see if
++		 * they're all 0 or any negative.
++		 */
++		if (key <= RISCV_HWPROBE_KEY_MIMPID)
++			id_bitsmash |= pair.value;
++	}
++
++	/*
++	 * If the arch, vendor, and implementation ID are all the same across
++	 * all harts, then assume all CPUs are the same, and allow the vDSO to
++	 * answer queries for arbitrary masks. However if all values are 0 (not
++	 * populated) or any value returns -1 (varies across CPUs), then the
++	 * vDSO should defer to the kernel for exotic cpu masks.
++	 */
++	avd->homogeneous_cpus = id_bitsmash != 0 && id_bitsmash != -1;
++	return 0;
++}
++
++arch_initcall_sync(init_hwprobe_vdso_data);
++
++#endif /* CONFIG_MMU */
++
++SYSCALL_DEFINE5(riscv_hwprobe, struct riscv_hwprobe __user *, pairs,
++		size_t, pair_count, size_t, cpusetsize, unsigned long __user *,
++		cpus, unsigned int, flags)
++{
++	return do_riscv_hwprobe(pairs, pair_count, cpusetsize,
++				cpus, flags);
++}
+diff -uNr linux0/arch/riscv/kernel/vector.c linux/arch/riscv/kernel/vector.c
+--- linux0/arch/riscv/kernel/vector.c	2024-10-12 07:18:42.312486127 +0000
++++ linux/arch/riscv/kernel/vector.c	2024-10-12 07:22:04.860215269 +0000
+@@ -33,7 +33,17 @@
+ {
+ 	unsigned long this_vsize;
+ 
+-	/* There are 32 vector registers with vlenb length. */
++	/*
++	 * There are 32 vector registers with vlenb length.
++	 *
++	 * If the thead,vlenb property was provided by the firmware, use that
++	 * instead of probing the CSRs.
++	 */
++	if (thead_vlenb_of) {
++		riscv_v_vsize = thead_vlenb_of * 32;
++		return 0;
++	}
++
+ 	riscv_v_enable();
+ 	this_vsize = csr_read(CSR_VLENB) * 32;
+ 	riscv_v_disable();
+@@ -53,7 +63,7 @@
+ 
+ void __init riscv_v_setup_ctx_cache(void)
+ {
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return;
+ 
+ 	riscv_v_user_cachep = kmem_cache_create_usercopy("riscv_vector_ctx",
+@@ -173,7 +183,7 @@
+ 	u32 __user *epc = (u32 __user *)regs->epc;
+ 	u32 insn = (u32)regs->badaddr;
+ 
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return false;
+ 
+ 	/* Do not handle if V is not supported, or disabled */
+@@ -216,7 +226,7 @@
+ 	bool inherit;
+ 	int cur, next;
+ 
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return;
+ 
+ 	next = riscv_v_ctrl_get_next(tsk);
+@@ -238,7 +248,7 @@
+ 
+ long riscv_v_vstate_ctrl_get_current(void)
+ {
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return -EINVAL;
+ 
+ 	return current->thread.vstate_ctrl & PR_RISCV_V_VSTATE_CTRL_MASK;
+@@ -249,7 +259,7 @@
+ 	bool inherit;
+ 	int cur, next;
+ 
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return -EINVAL;
+ 
+ 	if (arg & ~PR_RISCV_V_VSTATE_CTRL_MASK)
+@@ -299,7 +309,7 @@
+ 
+ static int __init riscv_v_sysctl_init(void)
+ {
+-	if (has_vector())
++	if (has_vector() || has_xtheadvector())
+ 		if (!register_sysctl("abi", riscv_v_default_vstate_table))
+ 			return -EINVAL;
+ 	return 0;
+diff -uNr linux0/arch/riscv/kernel/vendor_extensions/Makefile linux/arch/riscv/kernel/vendor_extensions/Makefile
+--- linux0/arch/riscv/kernel/vendor_extensions/Makefile	2024-10-12 07:18:42.312486127 +0000
++++ linux/arch/riscv/kernel/vendor_extensions/Makefile	2024-10-12 07:22:04.860215269 +0000
+@@ -1,3 +1,5 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ 
+ obj-$(CONFIG_RISCV_ISA_VENDOR_EXT_ANDES)	+= andes.o
++obj-$(CONFIG_RISCV_ISA_VENDOR_EXT_THEAD)	+= thead.o
++obj-$(CONFIG_RISCV_ISA_VENDOR_EXT_THEAD)	+= thead_hwprobe.o
+diff -uNr linux0/arch/riscv/kernel/vendor_extensions/thead.c linux/arch/riscv/kernel/vendor_extensions/thead.c
+--- linux0/arch/riscv/kernel/vendor_extensions/thead.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/kernel/vendor_extensions/thead.c	2024-10-12 07:22:04.853548244 +0000
+@@ -0,0 +1,18 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include <asm/cpufeature.h>
++#include <asm/vendor_extensions.h>
++#include <asm/vendor_extensions/thead.h>
++
++#include <linux/array_size.h>
++#include <linux/types.h>
++
++/* All T-Head vendor extensions supported in Linux */
++static const struct riscv_isa_ext_data riscv_isa_vendor_ext_thead[] = {
++	__RISCV_ISA_EXT_DATA(xtheadvector, RISCV_ISA_VENDOR_EXT_XTHEADVECTOR),
++};
++
++struct riscv_isa_vendor_ext_data_list riscv_isa_vendor_ext_list_thead = {
++	.ext_data_count = ARRAY_SIZE(riscv_isa_vendor_ext_thead),
++	.ext_data = riscv_isa_vendor_ext_thead,
++};
+diff -uNr linux0/arch/riscv/kernel/vendor_extensions/thead_hwprobe.c linux/arch/riscv/kernel/vendor_extensions/thead_hwprobe.c
+--- linux0/arch/riscv/kernel/vendor_extensions/thead_hwprobe.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/kernel/vendor_extensions/thead_hwprobe.c	2024-10-12 07:22:04.860215269 +0000
+@@ -0,0 +1,19 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include <asm/vendor_extensions/thead.h>
++#include <asm/vendor_extensions/thead_hwprobe.h>
++#include <asm/vendor_extensions/vendor_hwprobe.h>
++
++#include <linux/cpumask.h>
++#include <linux/types.h>
++
++#include <uapi/asm/hwprobe.h>
++#include <uapi/asm/vendor/thead.h>
++
++void hwprobe_isa_vendor_ext_thead_0(struct riscv_hwprobe *pair, const struct cpumask *cpus)
++{
++	VENDOR_EXTENSION_SUPPORTED(pair, cpus,
++				   riscv_isa_vendor_ext_list_thead.per_hart_isa_bitmap, {
++		VENDOR_EXT_KEY(XTHEADVECTOR);
++	});
++}
+diff -uNr linux0/arch/riscv/kernel/vendor_extensions.c linux/arch/riscv/kernel/vendor_extensions.c
+--- linux0/arch/riscv/kernel/vendor_extensions.c	2024-10-12 07:18:42.312486127 +0000
++++ linux/arch/riscv/kernel/vendor_extensions.c	2024-10-12 07:22:04.853548244 +0000
+@@ -6,6 +6,7 @@
+ #include <asm/vendorid_list.h>
+ #include <asm/vendor_extensions.h>
+ #include <asm/vendor_extensions/andes.h>
++#include <asm/vendor_extensions/thead.h>
+ 
+ #include <linux/array_size.h>
+ #include <linux/types.h>
+@@ -14,6 +15,9 @@
+ #ifdef CONFIG_RISCV_ISA_VENDOR_EXT_ANDES
+ 	&riscv_isa_vendor_ext_list_andes,
+ #endif
++#ifdef CONFIG_RISCV_ISA_VENDOR_EXT_THEAD
++	&riscv_isa_vendor_ext_list_thead,
++#endif
+ };
+ 
+ const size_t riscv_isa_vendor_ext_list_size = ARRAY_SIZE(riscv_isa_vendor_ext_list);
+@@ -41,6 +45,12 @@
+ 		cpu_bmap = riscv_isa_vendor_ext_list_andes.per_hart_isa_bitmap;
+ 		break;
+ 	#endif
++	#ifdef CONFIG_RISCV_ISA_VENDOR_EXT_THEAD
++	case THEAD_VENDOR_ID:
++		bmap = &riscv_isa_vendor_ext_list_thead.all_harts_isa_bitmap;
++		cpu_bmap = &riscv_isa_vendor_ext_list_thead.per_hart_isa_bitmap[cpu];
++		break;
++	#endif
+ 	default:
+ 		return false;
+ 	}
+diff -uNr linux0/arch/riscv/kernel/vendor_extensions.c.orig linux/arch/riscv/kernel/vendor_extensions.c.orig
+--- linux0/arch/riscv/kernel/vendor_extensions.c.orig	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/kernel/vendor_extensions.c.orig	2024-09-15 14:57:56.000000000 +0000
+@@ -0,0 +1,56 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright 2024 Rivos, Inc
++ */
++
++#include <asm/vendorid_list.h>
++#include <asm/vendor_extensions.h>
++#include <asm/vendor_extensions/andes.h>
++
++#include <linux/array_size.h>
++#include <linux/types.h>
++
++struct riscv_isa_vendor_ext_data_list *riscv_isa_vendor_ext_list[] = {
++#ifdef CONFIG_RISCV_ISA_VENDOR_EXT_ANDES
++	&riscv_isa_vendor_ext_list_andes,
++#endif
++};
++
++const size_t riscv_isa_vendor_ext_list_size = ARRAY_SIZE(riscv_isa_vendor_ext_list);
++
++/**
++ * __riscv_isa_vendor_extension_available() - Check whether given vendor
++ * extension is available or not.
++ *
++ * @cpu: check if extension is available on this cpu
++ * @vendor: vendor that the extension is a member of
++ * @bit: bit position of the desired extension
++ * Return: true or false
++ *
++ * NOTE: When cpu is -1, will check if extension is available on all cpus
++ */
++bool __riscv_isa_vendor_extension_available(int cpu, unsigned long vendor, unsigned int bit)
++{
++	struct riscv_isavendorinfo *bmap;
++	struct riscv_isavendorinfo *cpu_bmap;
++
++	switch (vendor) {
++	#ifdef CONFIG_RISCV_ISA_VENDOR_EXT_ANDES
++	case ANDES_VENDOR_ID:
++		bmap = &riscv_isa_vendor_ext_list_andes.all_harts_isa_bitmap;
++		cpu_bmap = riscv_isa_vendor_ext_list_andes.per_hart_isa_bitmap;
++		break;
++	#endif
++	default:
++		return false;
++	}
++
++	if (cpu != -1)
++		bmap = &cpu_bmap[cpu];
++
++	if (bit >= RISCV_ISA_VENDOR_EXT_MAX)
++		return false;
++
++	return test_bit(bit, bmap->isa) ? true : false;
++}
++EXPORT_SYMBOL_GPL(__riscv_isa_vendor_extension_available);
+diff -uNr linux0/Documentation/arch/riscv/hwprobe.rst linux/Documentation/arch/riscv/hwprobe.rst
+--- linux0/Documentation/arch/riscv/hwprobe.rst	2024-10-12 07:18:36.882183951 +0000
++++ linux/Documentation/arch/riscv/hwprobe.rst	2024-10-12 07:22:04.860215269 +0000
+@@ -274,3 +274,13 @@
+   represent the highest userspace virtual address usable.
+ 
+ * :c:macro:`RISCV_HWPROBE_KEY_TIME_CSR_FREQ`: Frequency (in Hz) of `time CSR`.
++
++* :c:macro:`RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0`: A bitmask containing the
++  thead vendor extensions that are compatible with the
++  :c:macro:`RISCV_HWPROBE_BASE_BEHAVIOR_IMA`: base system behavior.
++
++  * T-HEAD
++
++    * :c:macro:`RISCV_HWPROBE_VENDOR_EXT_XTHEADVECTOR`: The xtheadvector vendor
++        extension is supported in the T-Head ISA extensions spec starting from
++	commit a18c801634 ("Add T-Head VECTOR vendor extension. ").
+diff -uNr linux0/Documentation/arch/riscv/hwprobe.rst.orig linux/Documentation/arch/riscv/hwprobe.rst.orig
+--- linux0/Documentation/arch/riscv/hwprobe.rst.orig	1970-01-01 00:00:00.000000000 +0000
++++ linux/Documentation/arch/riscv/hwprobe.rst.orig	2024-09-15 14:57:56.000000000 +0000
+@@ -0,0 +1,276 @@
++.. SPDX-License-Identifier: GPL-2.0
++
++RISC-V Hardware Probing Interface
++---------------------------------
++
++The RISC-V hardware probing interface is based around a single syscall, which
++is defined in <asm/hwprobe.h>::
++
++    struct riscv_hwprobe {
++        __s64 key;
++        __u64 value;
++    };
++
++    long sys_riscv_hwprobe(struct riscv_hwprobe *pairs, size_t pair_count,
++                           size_t cpusetsize, cpu_set_t *cpus,
++                           unsigned int flags);
++
++The arguments are split into three groups: an array of key-value pairs, a CPU
++set, and some flags. The key-value pairs are supplied with a count. Userspace
++must prepopulate the key field for each element, and the kernel will fill in the
++value if the key is recognized. If a key is unknown to the kernel, its key field
++will be cleared to -1, and its value set to 0. The CPU set is defined by
++CPU_SET(3) with size ``cpusetsize`` bytes. For value-like keys (eg. vendor,
++arch, impl), the returned value will only be valid if all CPUs in the given set
++have the same value. Otherwise -1 will be returned. For boolean-like keys, the
++value returned will be a logical AND of the values for the specified CPUs.
++Usermode can supply NULL for ``cpus`` and 0 for ``cpusetsize`` as a shortcut for
++all online CPUs. The currently supported flags are:
++
++* :c:macro:`RISCV_HWPROBE_WHICH_CPUS`: This flag basically reverses the behavior
++  of sys_riscv_hwprobe().  Instead of populating the values of keys for a given
++  set of CPUs, the values of each key are given and the set of CPUs is reduced
++  by sys_riscv_hwprobe() to only those which match each of the key-value pairs.
++  How matching is done depends on the key type.  For value-like keys, matching
++  means to be the exact same as the value.  For boolean-like keys, matching
++  means the result of a logical AND of the pair's value with the CPU's value is
++  exactly the same as the pair's value.  Additionally, when ``cpus`` is an empty
++  set, then it is initialized to all online CPUs which fit within it, i.e. the
++  CPU set returned is the reduction of all the online CPUs which can be
++  represented with a CPU set of size ``cpusetsize``.
++
++All other flags are reserved for future compatibility and must be zero.
++
++On success 0 is returned, on failure a negative error code is returned.
++
++The following keys are defined:
++
++* :c:macro:`RISCV_HWPROBE_KEY_MVENDORID`: Contains the value of ``mvendorid``,
++  as defined by the RISC-V privileged architecture specification.
++
++* :c:macro:`RISCV_HWPROBE_KEY_MARCHID`: Contains the value of ``marchid``, as
++  defined by the RISC-V privileged architecture specification.
++
++* :c:macro:`RISCV_HWPROBE_KEY_MIMPLID`: Contains the value of ``mimplid``, as
++  defined by the RISC-V privileged architecture specification.
++
++* :c:macro:`RISCV_HWPROBE_KEY_BASE_BEHAVIOR`: A bitmask containing the base
++  user-visible behavior that this kernel supports.  The following base user ABIs
++  are defined:
++
++  * :c:macro:`RISCV_HWPROBE_BASE_BEHAVIOR_IMA`: Support for rv32ima or
++    rv64ima, as defined by version 2.2 of the user ISA and version 1.10 of the
++    privileged ISA, with the following known exceptions (more exceptions may be
++    added, but only if it can be demonstrated that the user ABI is not broken):
++
++    * The ``fence.i`` instruction cannot be directly executed by userspace
++      programs (it may still be executed in userspace via a
++      kernel-controlled mechanism such as the vDSO).
++
++* :c:macro:`RISCV_HWPROBE_KEY_IMA_EXT_0`: A bitmask containing the extensions
++  that are compatible with the :c:macro:`RISCV_HWPROBE_BASE_BEHAVIOR_IMA`:
++  base system behavior.
++
++  * :c:macro:`RISCV_HWPROBE_IMA_FD`: The F and D extensions are supported, as
++    defined by commit cd20cee ("FMIN/FMAX now implement
++    minimumNumber/maximumNumber, not minNum/maxNum") of the RISC-V ISA manual.
++
++  * :c:macro:`RISCV_HWPROBE_IMA_C`: The C extension is supported, as defined
++    by version 2.2 of the RISC-V ISA manual.
++
++  * :c:macro:`RISCV_HWPROBE_IMA_V`: The V extension is supported, as defined by
++    version 1.0 of the RISC-V Vector extension manual.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZBA`: The Zba address generation extension is
++       supported, as defined in version 1.0 of the Bit-Manipulation ISA
++       extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZBB`: The Zbb extension is supported, as defined
++       in version 1.0 of the Bit-Manipulation ISA extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZBS`: The Zbs extension is supported, as defined
++       in version 1.0 of the Bit-Manipulation ISA extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZICBOZ`: The Zicboz extension is supported, as
++       ratified in commit 3dd606f ("Create cmobase-v1.0.pdf") of riscv-CMOs.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZBC` The Zbc extension is supported, as defined
++       in version 1.0 of the Bit-Manipulation ISA extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZBKB` The Zbkb extension is supported, as
++       defined in version 1.0 of the Scalar Crypto ISA extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZBKC` The Zbkc extension is supported, as
++       defined in version 1.0 of the Scalar Crypto ISA extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZBKX` The Zbkx extension is supported, as
++       defined in version 1.0 of the Scalar Crypto ISA extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZKND` The Zknd extension is supported, as
++       defined in version 1.0 of the Scalar Crypto ISA extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZKNE` The Zkne extension is supported, as
++       defined in version 1.0 of the Scalar Crypto ISA extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZKNH` The Zknh extension is supported, as
++       defined in version 1.0 of the Scalar Crypto ISA extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZKSED` The Zksed extension is supported, as
++       defined in version 1.0 of the Scalar Crypto ISA extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZKSH` The Zksh extension is supported, as
++       defined in version 1.0 of the Scalar Crypto ISA extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZKT` The Zkt extension is supported, as defined
++       in version 1.0 of the Scalar Crypto ISA extensions.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVBB`: The Zvbb extension is supported as
++       defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVBC`: The Zvbc extension is supported as
++       defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVKB`: The Zvkb extension is supported as
++       defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVKG`: The Zvkg extension is supported as
++       defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVKNED`: The Zvkned extension is supported as
++       defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVKNHA`: The Zvknha extension is supported as
++       defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVKNHB`: The Zvknhb extension is supported as
++       defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVKSED`: The Zvksed extension is supported as
++       defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVKSH`: The Zvksh extension is supported as
++       defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVKT`: The Zvkt extension is supported as
++       defined in version 1.0 of the RISC-V Cryptography Extensions Volume II.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZFH`: The Zfh extension version 1.0 is supported
++       as defined in the RISC-V ISA manual.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZFHMIN`: The Zfhmin extension version 1.0 is
++       supported as defined in the RISC-V ISA manual.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZIHINTNTL`: The Zihintntl extension version 1.0
++       is supported as defined in the RISC-V ISA manual.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVFH`: The Zvfh extension is supported as
++       defined in the RISC-V Vector manual starting from commit e2ccd0548d6c
++       ("Remove draft warnings from Zvfh[min]").
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVFHMIN`: The Zvfhmin extension is supported as
++       defined in the RISC-V Vector manual starting from commit e2ccd0548d6c
++       ("Remove draft warnings from Zvfh[min]").
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZFA`: The Zfa extension is supported as
++       defined in the RISC-V ISA manual starting from commit 056b6ff467c7
++       ("Zfa is ratified").
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZTSO`: The Ztso extension is supported as
++       defined in the RISC-V ISA manual starting from commit 5618fb5a216b
++       ("Ztso is now ratified.")
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZACAS`: The Zacas extension is supported as
++       defined in the Atomic Compare-and-Swap (CAS) instructions manual starting
++       from commit 5059e0ca641c ("update to ratified").
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZICOND`: The Zicond extension is supported as
++       defined in the RISC-V Integer Conditional (Zicond) operations extension
++       manual starting from commit 95cf1f9 ("Add changes requested by Ved
++       during signoff")
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZIHINTPAUSE`: The Zihintpause extension is
++       supported as defined in the RISC-V ISA manual starting from commit
++       d8ab5c78c207 ("Zihintpause is ratified").
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVE32X`: The Vector sub-extension Zve32x is
++    supported, as defined by version 1.0 of the RISC-V Vector extension manual.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVE32F`: The Vector sub-extension Zve32f is
++    supported, as defined by version 1.0 of the RISC-V Vector extension manual.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVE64X`: The Vector sub-extension Zve64x is
++    supported, as defined by version 1.0 of the RISC-V Vector extension manual.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVE64F`: The Vector sub-extension Zve64f is
++    supported, as defined by version 1.0 of the RISC-V Vector extension manual.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZVE64D`: The Vector sub-extension Zve64d is
++    supported, as defined by version 1.0 of the RISC-V Vector extension manual.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZIMOP`: The Zimop May-Be-Operations extension is
++       supported as defined in the RISC-V ISA manual starting from commit
++       58220614a5f ("Zimop is ratified/1.0").
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZCA`: The Zca extension part of Zc* standard
++       extensions for code size reduction, as ratified in commit 8be3419c1c0
++       ("Zcf doesn't exist on RV64 as it contains no instructions") of
++       riscv-code-size-reduction.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZCB`: The Zcb extension part of Zc* standard
++       extensions for code size reduction, as ratified in commit 8be3419c1c0
++       ("Zcf doesn't exist on RV64 as it contains no instructions") of
++       riscv-code-size-reduction.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZCD`: The Zcd extension part of Zc* standard
++       extensions for code size reduction, as ratified in commit 8be3419c1c0
++       ("Zcf doesn't exist on RV64 as it contains no instructions") of
++       riscv-code-size-reduction.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZCF`: The Zcf extension part of Zc* standard
++       extensions for code size reduction, as ratified in commit 8be3419c1c0
++       ("Zcf doesn't exist on RV64 as it contains no instructions") of
++       riscv-code-size-reduction.
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZCMOP`: The Zcmop May-Be-Operations extension is
++       supported as defined in the RISC-V ISA manual starting from commit
++       c732a4f39a4 ("Zcmop is ratified/1.0").
++
++  * :c:macro:`RISCV_HWPROBE_EXT_ZAWRS`: The Zawrs extension is supported as
++       ratified in commit 98918c844281 ("Merge pull request #1217 from
++       riscv/zawrs") of riscv-isa-manual.
++
++* :c:macro:`RISCV_HWPROBE_KEY_CPUPERF_0`: Deprecated.  Returns similar values to
++     :c:macro:`RISCV_HWPROBE_KEY_MISALIGNED_SCALAR_PERF`, but the key was
++     mistakenly classified as a bitmask rather than a value.
++
++* :c:macro:`RISCV_HWPROBE_KEY_MISALIGNED_SCALAR_PERF`: An enum value describing
++  the performance of misaligned scalar native word accesses on the selected set
++  of processors.
++
++  * :c:macro:`RISCV_HWPROBE_MISALIGNED_SCALAR_UNKNOWN`: The performance of
++    misaligned scalar accesses is unknown.
++
++  * :c:macro:`RISCV_HWPROBE_MISALIGNED_SCALAR_EMULATED`: Misaligned scalar
++    accesses are emulated via software, either in or below the kernel.  These
++    accesses are always extremely slow.
++
++  * :c:macro:`RISCV_HWPROBE_MISALIGNED_SCALAR_SLOW`: Misaligned scalar native
++    word sized accesses are slower than the equivalent quantity of byte
++    accesses. Misaligned accesses may be supported directly in hardware, or
++    trapped and emulated by software.
++
++  * :c:macro:`RISCV_HWPROBE_MISALIGNED_SCALAR_FAST`: Misaligned scalar native
++    word sized accesses are faster than the equivalent quantity of byte
++    accesses.
++
++  * :c:macro:`RISCV_HWPROBE_MISALIGNED_SCALAR_UNSUPPORTED`: Misaligned scalar
++    accesses are not supported at all and will generate a misaligned address
++    fault.
++
++* :c:macro:`RISCV_HWPROBE_KEY_ZICBOZ_BLOCK_SIZE`: An unsigned int which
++  represents the size of the Zicboz block in bytes.
++
++* :c:macro:`RISCV_HWPROBE_KEY_HIGHEST_VIRT_ADDRESS`: An unsigned long which
++  represent the highest userspace virtual address usable.
++
++* :c:macro:`RISCV_HWPROBE_KEY_TIME_CSR_FREQ`: Frequency (in Hz) of `time CSR`.
+diff -uNr linux0/Documentation/devicetree/bindings/riscv/cpus.yaml linux/Documentation/devicetree/bindings/riscv/cpus.yaml
+--- linux0/Documentation/devicetree/bindings/riscv/cpus.yaml	2024-10-12 07:18:37.795568139 +0000
++++ linux/Documentation/devicetree/bindings/riscv/cpus.yaml	2024-10-12 07:22:04.850214731 +0000
+@@ -26,6 +26,18 @@
+ allOf:
+   - $ref: /schemas/cpu.yaml#
+   - $ref: extensions.yaml
++  - if:
++      not:
++        properties:
++          compatible:
++            contains:
++              enum:
++                - thead,c906
++                - thead,c910
++                - thead,c920
++    then:
++      properties:
++        thead,vlenb: false
+ 
+ properties:
+   compatible:
+@@ -95,6 +107,13 @@
+     description:
+       The blocksize in bytes for the Zicboz cache operations.
+ 
++  thead,vlenb:
++    $ref: /schemas/types.yaml#/definitions/uint32
++    description:
++      VLEN/8, the vector register length in bytes. This property is required on
++      thead systems where the vector register length is not identical on all harts, or
++      the vlenb CSR is not available.
++
+   # RISC-V has multiple properties for cache op block sizes as the sizes
+   # differ between individual CBO extensions
+   cache-op-block-size: false
+diff -uNr linux0/Documentation/devicetree/bindings/riscv/extensions.yaml linux/Documentation/devicetree/bindings/riscv/extensions.yaml
+--- linux0/Documentation/devicetree/bindings/riscv/extensions.yaml	2024-10-12 07:18:37.795568139 +0000
++++ linux/Documentation/devicetree/bindings/riscv/extensions.yaml	2024-10-12 07:22:04.850214731 +0000
+@@ -556,6 +556,10 @@
+             latency, as ratified in commit 56ed795 ("Update
+             riscv-crypto-spec-vector.adoc") of riscv-crypto.
+ 
++        # vendor extensions, each extension sorted alphanumerically under the
++        # vendor they belong to. Vendors are sorted alphanumerically as well.
++
++        # Andes
+         - const: xandespmu
+           description:
+             The Andes Technology performance monitor extension for counter overflow
+@@ -563,6 +567,12 @@
+             Registers in the AX45MP datasheet.
+             https://www.andestech.com/wp-content/uploads/AX45MP-1C-Rev.-5.0.0-Datasheet.pdf
+ 
++        # T-HEAD
++        - const: xtheadvector
++          description:
++            The T-HEAD specific 0.7.1 vector implementation as written in
++            https://github.com/T-head-Semi/thead-extension-spec/blob/95358cb2cca9489361c61d335e03d3134b14133f/xtheadvector.adoc.
++
+     allOf:
+       # Zcb depends on Zca
+       - if:
+diff -uNr linux0/tools/testing/selftests/riscv/vector/.gitignore linux/tools/testing/selftests/riscv/vector/.gitignore
+--- linux0/tools/testing/selftests/riscv/vector/.gitignore	2024-10-12 07:18:59.250093190 +0000
++++ linux/tools/testing/selftests/riscv/vector/.gitignore	2024-10-12 07:22:04.860215269 +0000
+@@ -1,3 +1,4 @@
+ vstate_exec_nolibc
+ vstate_prctl
+-v_initval_nolibc
++v_initval
++v_exec_initval_nolibc
+diff -uNr linux0/tools/testing/selftests/riscv/vector/Makefile linux/tools/testing/selftests/riscv/vector/Makefile
+--- linux0/tools/testing/selftests/riscv/vector/Makefile	2024-10-12 07:18:59.250093190 +0000
++++ linux/tools/testing/selftests/riscv/vector/Makefile	2024-10-12 07:22:04.860215269 +0000
+@@ -2,18 +2,27 @@
+ # Copyright (C) 2021 ARM Limited
+ # Originally tools/testing/arm64/abi/Makefile
+ 
+-TEST_GEN_PROGS := vstate_prctl v_initval_nolibc
+-TEST_GEN_PROGS_EXTENDED := vstate_exec_nolibc
++TEST_GEN_PROGS := v_initval vstate_prctl
++TEST_GEN_PROGS_EXTENDED := vstate_exec_nolibc v_exec_initval_nolibc sys_hwprobe.o v_helpers.o
+ 
+ include ../../lib.mk
+ 
+-$(OUTPUT)/vstate_prctl: vstate_prctl.c ../hwprobe/sys_hwprobe.S
++$(OUTPUT)/sys_hwprobe.o: ../hwprobe/sys_hwprobe.S
++	$(CC) -static -c -o$@ $(CFLAGS) $^
++
++$(OUTPUT)/v_helpers.o: v_helpers.c
++	$(CC) -static -c -o$@ $(CFLAGS) $^
++
++$(OUTPUT)/vstate_prctl: vstate_prctl.c $(OUTPUT)/sys_hwprobe.o $(OUTPUT)/v_helpers.o
+ 	$(CC) -static -o$@ $(CFLAGS) $(LDFLAGS) $^
+ 
+ $(OUTPUT)/vstate_exec_nolibc: vstate_exec_nolibc.c
+ 	$(CC) -nostdlib -static -include ../../../../include/nolibc/nolibc.h \
+ 		-Wall $(CFLAGS) $(LDFLAGS) $^ -o $@ -lgcc
+ 
+-$(OUTPUT)/v_initval_nolibc: v_initval_nolibc.c
++$(OUTPUT)/v_initval: v_initval.c $(OUTPUT)/sys_hwprobe.o $(OUTPUT)/v_helpers.o
++	$(CC) -static -o$@ $(CFLAGS) $(LDFLAGS) $^
++
++$(OUTPUT)/v_exec_initval_nolibc: v_exec_initval_nolibc.c
+ 	$(CC) -nostdlib -static -include ../../../../include/nolibc/nolibc.h \
+ 		-Wall $(CFLAGS) $(LDFLAGS) $^ -o $@ -lgcc
+diff -uNr linux0/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c linux/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c
+--- linux0/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c	2024-10-12 07:22:04.863548781 +0000
+@@ -0,0 +1,94 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Get values of vector registers as soon as the program starts to test if
++ * is properly cleaning the values before starting a new program. Vector
++ * registers are caller saved, so no function calls may happen before reading
++ * the values. To further ensure consistency, this file is compiled without
++ * libc and without auto-vectorization.
++ *
++ * To be "clean" all values must be either all ones or all zeroes.
++ */
++
++#define __stringify_1(x...)	#x
++#define __stringify(x...)	__stringify_1(x)
++
++int main(int argc, char **argv)
++{
++	char prev_value = 0, value;
++	unsigned long vl;
++	int first = 1;
++
++	if (argc > 2 && strcmp(argv[2], "x"))
++		asm volatile (
++			// 0 | zimm[10:0] | rs1 | 1 1 1 | rd |1010111| vsetvli
++			// vsetvli	t4, x0, e8, m1, d1
++			".4byte		0b00000000000000000111111011010111\n\t"
++			"mv		%[vl], t4\n\t"
++			: [vl] "=r" (vl) : : "t4"
++		);
++	else
++		asm volatile (
++			".option push\n\t"
++			".option arch, +v\n\t"
++			"vsetvli	%[vl], x0, e8, m1, ta, ma\n\t"
++			".option pop\n\t"
++			: [vl] "=r" (vl)
++		);
++
++#define CHECK_VECTOR_REGISTER(register) ({					\
++	for (int i = 0; i < vl; i++) {						\
++		asm volatile (							\
++			".option push\n\t"					\
++			".option arch, +v\n\t"					\
++			"vmv.x.s %0, " __stringify(register) "\n\t"		\
++			"vsrl.vi " __stringify(register) ", " __stringify(register) ", 8\n\t" \
++			".option pop\n\t"					\
++			: "=r" (value));					\
++		if (first) {							\
++			first = 0;						\
++		} else if (value != prev_value || !(value == 0x00 || value == 0xff)) { \
++			printf("Register " __stringify(register)		\
++				" values not clean! value: %u\n", value);	\
++			exit(-1);						\
++		}								\
++		prev_value = value;						\
++	}									\
++})
++
++	CHECK_VECTOR_REGISTER(v0);
++	CHECK_VECTOR_REGISTER(v1);
++	CHECK_VECTOR_REGISTER(v2);
++	CHECK_VECTOR_REGISTER(v3);
++	CHECK_VECTOR_REGISTER(v4);
++	CHECK_VECTOR_REGISTER(v5);
++	CHECK_VECTOR_REGISTER(v6);
++	CHECK_VECTOR_REGISTER(v7);
++	CHECK_VECTOR_REGISTER(v8);
++	CHECK_VECTOR_REGISTER(v9);
++	CHECK_VECTOR_REGISTER(v10);
++	CHECK_VECTOR_REGISTER(v11);
++	CHECK_VECTOR_REGISTER(v12);
++	CHECK_VECTOR_REGISTER(v13);
++	CHECK_VECTOR_REGISTER(v14);
++	CHECK_VECTOR_REGISTER(v15);
++	CHECK_VECTOR_REGISTER(v16);
++	CHECK_VECTOR_REGISTER(v17);
++	CHECK_VECTOR_REGISTER(v18);
++	CHECK_VECTOR_REGISTER(v19);
++	CHECK_VECTOR_REGISTER(v20);
++	CHECK_VECTOR_REGISTER(v21);
++	CHECK_VECTOR_REGISTER(v22);
++	CHECK_VECTOR_REGISTER(v23);
++	CHECK_VECTOR_REGISTER(v24);
++	CHECK_VECTOR_REGISTER(v25);
++	CHECK_VECTOR_REGISTER(v26);
++	CHECK_VECTOR_REGISTER(v27);
++	CHECK_VECTOR_REGISTER(v28);
++	CHECK_VECTOR_REGISTER(v29);
++	CHECK_VECTOR_REGISTER(v30);
++	CHECK_VECTOR_REGISTER(v31);
++
++#undef CHECK_VECTOR_REGISTER
++
++	return 0;
++}
+diff -uNr linux0/tools/testing/selftests/riscv/vector/v_helpers.c linux/tools/testing/selftests/riscv/vector/v_helpers.c
+--- linux0/tools/testing/selftests/riscv/vector/v_helpers.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/tools/testing/selftests/riscv/vector/v_helpers.c	2024-10-12 07:22:04.863548781 +0000
+@@ -0,0 +1,68 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include "../hwprobe/hwprobe.h"
++#include <asm/vendor/thead.h>
++#include <stdbool.h>
++#include <stdlib.h>
++#include <stdio.h>
++#include <unistd.h>
++#include <sys/wait.h>
++
++bool is_xtheadvector_supported(void)
++{
++	struct riscv_hwprobe pair;
++
++	pair.key = RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0;
++	riscv_hwprobe(&pair, 1, 0, NULL, 0);
++	return pair.value & RISCV_HWPROBE_VENDOR_EXT_XTHEADVECTOR;
++}
++
++bool is_vector_supported(void)
++{
++	struct riscv_hwprobe pair;
++
++	pair.key = RISCV_HWPROBE_KEY_IMA_EXT_0;
++	riscv_hwprobe(&pair, 1, 0, NULL, 0);
++	return pair.value & RISCV_HWPROBE_EXT_ZVE32X;
++}
++
++int launch_test(char *next_program, int test_inherit, int xtheadvector)
++{
++	char *exec_argv[4], *exec_envp[1];
++	int rc, pid, status;
++
++	pid = fork();
++	if (pid < 0) {
++		printf("fork failed %d", pid);
++		return -1;
++	}
++
++	if (!pid) {
++		exec_argv[0] = next_program;
++		exec_argv[1] = test_inherit != 0 ? "x" : NULL;
++		exec_argv[2] = xtheadvector != 0 ? "x" : NULL;
++		exec_argv[3] = NULL;
++		exec_envp[0] = NULL;
++		/* launch the program again to check inherit */
++		rc = execve(next_program, exec_argv, exec_envp);
++		if (rc) {
++			perror("execve");
++			printf("child execve failed %d\n", rc);
++			exit(-1);
++		}
++	}
++
++	rc = waitpid(-1, &status, 0);
++	if (rc < 0) {
++		printf("waitpid failed\n");
++		return -3;
++	}
++
++	if ((WIFEXITED(status) && WEXITSTATUS(status) == -1) ||
++	    WIFSIGNALED(status)) {
++		printf("child exited abnormally\n");
++		return -4;
++	}
++
++	return WEXITSTATUS(status);
++}
+diff -uNr linux0/tools/testing/selftests/riscv/vector/v_helpers.h linux/tools/testing/selftests/riscv/vector/v_helpers.h
+--- linux0/tools/testing/selftests/riscv/vector/v_helpers.h	1970-01-01 00:00:00.000000000 +0000
++++ linux/tools/testing/selftests/riscv/vector/v_helpers.h	2024-10-12 07:22:04.863548781 +0000
+@@ -0,0 +1,8 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#include <stdbool.h>
++
++bool is_xtheadvector_supported(void);
++
++bool is_vector_supported(void);
++
++int launch_test(char *next_program, int test_inherit, int xtheadvector);
+diff -uNr linux0/tools/testing/selftests/riscv/vector/v_initval.c linux/tools/testing/selftests/riscv/vector/v_initval.c
+--- linux0/tools/testing/selftests/riscv/vector/v_initval.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/tools/testing/selftests/riscv/vector/v_initval.c	2024-10-12 07:22:04.863548781 +0000
+@@ -0,0 +1,22 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include "../../kselftest_harness.h"
++#include "v_helpers.h"
++
++#define NEXT_PROGRAM "./v_exec_initval_nolibc"
++
++TEST(v_initval)
++{
++	int xtheadvector = 0;
++
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
++
++	ASSERT_EQ(0, launch_test(NEXT_PROGRAM, 0, xtheadvector));
++}
++
++TEST_HARNESS_MAIN
+diff -uNr linux0/tools/testing/selftests/riscv/vector/v_initval_nolibc.c linux/tools/testing/selftests/riscv/vector/v_initval_nolibc.c
+--- linux0/tools/testing/selftests/riscv/vector/v_initval_nolibc.c	2024-10-12 07:18:59.250093190 +0000
++++ linux/tools/testing/selftests/riscv/vector/v_initval_nolibc.c	1970-01-01 00:00:00.000000000 +0000
+@@ -1,68 +0,0 @@
+-// SPDX-License-Identifier: GPL-2.0-only
+-
+-#include "../../kselftest.h"
+-#define MAX_VSIZE	(8192 * 32)
+-
+-void dump(char *ptr, int size)
+-{
+-	int i = 0;
+-
+-	for (i = 0; i < size; i++) {
+-		if (i != 0) {
+-			if (i % 16 == 0)
+-				printf("\n");
+-			else if (i % 8 == 0)
+-				printf("  ");
+-		}
+-		printf("%02x ", ptr[i]);
+-	}
+-	printf("\n");
+-}
+-
+-int main(void)
+-{
+-	int i;
+-	unsigned long vl;
+-	char *datap, *tmp;
+-
+-	datap = malloc(MAX_VSIZE);
+-	if (!datap) {
+-		ksft_test_result_fail("fail to allocate memory for size = %d\n", MAX_VSIZE);
+-		exit(-1);
+-	}
+-
+-	tmp = datap;
+-	asm volatile (
+-		".option push\n\t"
+-		".option arch, +v\n\t"
+-		"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
+-		"vse8.v		v0, (%2)\n\t"
+-		"add		%1, %2, %0\n\t"
+-		"vse8.v		v8, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v16, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v24, (%1)\n\t"
+-		".option pop\n\t"
+-		: "=&r" (vl), "=r" (tmp) : "r" (datap) : "memory");
+-
+-	ksft_print_msg("vl = %lu\n", vl);
+-
+-	if (datap[0] != 0x00 && datap[0] != 0xff) {
+-		ksft_test_result_fail("v-regesters are not properly initialized\n");
+-		dump(datap, vl * 4);
+-		exit(-1);
+-	}
+-
+-	for (i = 1; i < vl * 4; i++) {
+-		if (datap[i] != datap[0]) {
+-			ksft_test_result_fail("detect stale values on v-regesters\n");
+-			dump(datap, vl * 4);
+-			exit(-2);
+-		}
+-	}
+-
+-	free(datap);
+-	ksft_exit_pass();
+-	return 0;
+-}
+diff -uNr linux0/tools/testing/selftests/riscv/vector/vstate_exec_nolibc.c linux/tools/testing/selftests/riscv/vector/vstate_exec_nolibc.c
+--- linux0/tools/testing/selftests/riscv/vector/vstate_exec_nolibc.c	2024-10-12 07:18:59.250093190 +0000
++++ linux/tools/testing/selftests/riscv/vector/vstate_exec_nolibc.c	2024-10-12 07:22:04.863548781 +0000
+@@ -6,13 +6,16 @@
+ 
+ int main(int argc, char **argv)
+ {
+-	int rc, pid, status, test_inherit = 0;
++	int rc, pid, status, test_inherit = 0, xtheadvector = 0;
+ 	long ctrl, ctrl_c;
+ 	char *exec_argv[2], *exec_envp[2];
+ 
+-	if (argc > 1)
++	if (argc > 1 && strcmp(argv[1], "x"))
+ 		test_inherit = 1;
+ 
++	if (argc > 2 && strcmp(argv[2], "x"))
++		xtheadvector = 1;
++
+ 	ctrl = my_syscall1(__NR_prctl, PR_RISCV_V_GET_CONTROL);
+ 	if (ctrl < 0) {
+ 		puts("PR_RISCV_V_GET_CONTROL is not supported\n");
+@@ -53,11 +56,14 @@
+ 				puts("child's vstate_ctrl not equal to parent's\n");
+ 				exit(-1);
+ 			}
+-			asm volatile (".option push\n\t"
+-				      ".option arch, +v\n\t"
+-				      "vsetvli x0, x0, e32, m8, ta, ma\n\t"
+-				      ".option pop\n\t"
+-				      );
++			if (xtheadvector)
++				asm volatile (".4byte	0x00007ed7");
++			else
++				asm volatile (".option push\n\t"
++					".option arch, +v\n\t"
++					"vsetvli x0, x0, e32, m8, ta, ma\n\t"
++					".option pop\n\t"
++					);
+ 			exit(ctrl);
+ 		}
+ 	}
+diff -uNr linux0/tools/testing/selftests/riscv/vector/vstate_prctl.c linux/tools/testing/selftests/riscv/vector/vstate_prctl.c
+--- linux0/tools/testing/selftests/riscv/vector/vstate_prctl.c	2024-10-12 07:18:59.250093190 +0000
++++ linux/tools/testing/selftests/riscv/vector/vstate_prctl.c	2024-10-12 07:22:04.863548781 +0000
+@@ -3,179 +3,244 @@
+ #include <unistd.h>
+ #include <errno.h>
+ #include <sys/wait.h>
++#include <sys/types.h>
++#include <stdlib.h>
+ 
+-#include "../hwprobe/hwprobe.h"
+-#include "../../kselftest.h"
++#include "../../kselftest_harness.h"
++#include "v_helpers.h"
+ 
+ #define NEXT_PROGRAM "./vstate_exec_nolibc"
+-static int launch_test(int test_inherit)
+-{
+-	char *exec_argv[3], *exec_envp[1];
+-	int rc, pid, status;
+-
+-	pid = fork();
+-	if (pid < 0) {
+-		ksft_test_result_fail("fork failed %d", pid);
+-		return -1;
+-	}
+ 
+-	if (!pid) {
+-		exec_argv[0] = NEXT_PROGRAM;
+-		exec_argv[1] = test_inherit != 0 ? "x" : NULL;
+-		exec_argv[2] = NULL;
+-		exec_envp[0] = NULL;
+-		/* launch the program again to check inherit */
+-		rc = execve(NEXT_PROGRAM, exec_argv, exec_envp);
+-		if (rc) {
+-			perror("execve");
+-			ksft_test_result_fail("child execve failed %d\n", rc);
+-			exit(-1);
+-		}
+-	}
+-
+-	rc = waitpid(-1, &status, 0);
+-	if (rc < 0) {
+-		ksft_test_result_fail("waitpid failed\n");
+-		return -3;
+-	}
+-
+-	if ((WIFEXITED(status) && WEXITSTATUS(status) == -1) ||
+-	    WIFSIGNALED(status)) {
+-		ksft_test_result_fail("child exited abnormally\n");
+-		return -4;
+-	}
+-
+-	return WEXITSTATUS(status);
+-}
+-
+-int test_and_compare_child(long provided, long expected, int inherit)
++int test_and_compare_child(long provided, long expected, int inherit, int xtheadvector)
+ {
+ 	int rc;
+ 
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, provided);
+ 	if (rc != 0) {
+-		ksft_test_result_fail("prctl with provided arg %lx failed with code %d\n",
+-				      provided, rc);
++		printf("prctl with provided arg %lx failed with code %d\n",
++		       provided, rc);
+ 		return -1;
+ 	}
+-	rc = launch_test(inherit);
++	rc = launch_test(NEXT_PROGRAM, inherit, xtheadvector);
+ 	if (rc != expected) {
+-		ksft_test_result_fail("Test failed, check %d != %ld\n", rc,
+-				      expected);
++		printf("Test failed, check %d != %ld\n", rc, expected);
+ 		return -2;
+ 	}
+ 	return 0;
+ }
+ 
+-#define PR_RISCV_V_VSTATE_CTRL_CUR_SHIFT	0
+-#define PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT	2
++#define PR_RISCV_V_VSTATE_CTRL_CUR_SHIFT 0
++#define PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT 2
+ 
+-int main(void)
++TEST(get_control_no_v)
+ {
+-	struct riscv_hwprobe pair;
+-	long flag, expected;
+ 	long rc;
+ 
+-	pair.key = RISCV_HWPROBE_KEY_IMA_EXT_0;
+-	rc = riscv_hwprobe(&pair, 1, 0, NULL, 0);
+-	if (rc < 0) {
+-		ksft_test_result_fail("hwprobe() failed with %ld\n", rc);
+-		return -1;
+-	}
++	if (is_vector_supported() || is_xtheadvector_supported())
++		SKIP(return, "Test expects vector to be not supported");
+ 
+-	if (pair.key != RISCV_HWPROBE_KEY_IMA_EXT_0) {
+-		ksft_test_result_fail("hwprobe cannot probe RISCV_HWPROBE_KEY_IMA_EXT_0\n");
+-		return -2;
+-	}
++	rc = prctl(PR_RISCV_V_GET_CONTROL);
++	EXPECT_EQ(-1, rc)
++	TH_LOG("GET_CONTROL should fail on kernel/hw without ZVE32X");
++	EXPECT_EQ(EINVAL, errno)
++	TH_LOG("GET_CONTROL should fail on kernel/hw without ZVE32X");
++}
++
++TEST(set_control_no_v)
++{
++	long rc;
+ 
+-	if (!(pair.value & RISCV_HWPROBE_EXT_ZVE32X)) {
+-		rc = prctl(PR_RISCV_V_GET_CONTROL);
+-		if (rc != -1 || errno != EINVAL) {
+-			ksft_test_result_fail("GET_CONTROL should fail on kernel/hw without ZVE32X\n");
+-			return -3;
+-		}
+-
+-		rc = prctl(PR_RISCV_V_SET_CONTROL, PR_RISCV_V_VSTATE_CTRL_ON);
+-		if (rc != -1 || errno != EINVAL) {
+-			ksft_test_result_fail("SET_CONTROL should fail on kernel/hw without ZVE32X\n");
+-			return -4;
+-		}
++	if (is_vector_supported() || is_xtheadvector_supported())
++		SKIP(return, "Test expects vector to be not supported");
+ 
+-		ksft_test_result_skip("Vector not supported\n");
+-		return 0;
+-	}
++	rc = prctl(PR_RISCV_V_SET_CONTROL, PR_RISCV_V_VSTATE_CTRL_ON);
++	EXPECT_EQ(-1, rc)
++	TH_LOG("SET_CONTROL should fail on kernel/hw without ZVE32X");
++	EXPECT_EQ(EINVAL, errno)
++	TH_LOG("SET_CONTROL should fail on kernel/hw without ZVE32X");
++}
++
++TEST(vstate_on_current)
++{
++	long flag;
++	long rc;
++
++	if (!is_vector_supported() && !is_xtheadvector_supported())
++		SKIP(return, "Vector not supported");
+ 
+ 	flag = PR_RISCV_V_VSTATE_CTRL_ON;
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, flag);
+-	if (rc != 0) {
+-		ksft_test_result_fail("Enabling V for current should always success\n");
+-		return -5;
+-	}
++	EXPECT_EQ(0, rc) TH_LOG("Enabling V for current should always succeed");
++}
++
++TEST(vstate_off_eperm)
++{
++	long flag;
++	long rc;
++
++	if (!is_vector_supported() && !is_xtheadvector_supported())
++		SKIP(return, "Vector not supported");
+ 
+ 	flag = PR_RISCV_V_VSTATE_CTRL_OFF;
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, flag);
+-	if (rc != -1 || errno != EPERM) {
+-		ksft_test_result_fail("Disabling current's V alive must fail with EPERM(%d)\n",
+-				      errno);
+-		return -5;
++	EXPECT_EQ(EPERM, errno)
++	TH_LOG("Disabling V in current thread with V enabled must fail with EPERM(%d)", errno);
++	EXPECT_EQ(-1, rc)
++	TH_LOG("Disabling V in current thread with V enabled must fail with EPERM(%d)", errno);
++}
++
++TEST(vstate_on_no_nesting)
++{
++	long flag;
++	int xtheadvector = 0;
++
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
+ 	}
+ 
+ 	/* Turn on next's vector explicitly and test */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_ON << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+-	if (test_and_compare_child(flag, PR_RISCV_V_VSTATE_CTRL_ON, 0))
+-		return -6;
++
++	EXPECT_EQ(0, test_and_compare_child(flag, PR_RISCV_V_VSTATE_CTRL_ON, 0, xtheadvector));
++}
++
++TEST(vstate_off_nesting)
++{
++	long flag;
++	int xtheadvector = 0;
++
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
+ 
+ 	/* Turn off next's vector explicitly and test */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_OFF << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+-	if (test_and_compare_child(flag, PR_RISCV_V_VSTATE_CTRL_OFF, 0))
+-		return -7;
++
++	EXPECT_EQ(0, test_and_compare_child(flag, PR_RISCV_V_VSTATE_CTRL_OFF, 1, xtheadvector));
++}
++
++TEST(vstate_on_inherit_no_nesting)
++{
++	long flag, expected;
++	int xtheadvector = 0;
++
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
++
++	/* Turn on next's vector explicitly and test no inherit */
++	flag = PR_RISCV_V_VSTATE_CTRL_ON << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
++	flag |= PR_RISCV_V_VSTATE_CTRL_INHERIT;
++	expected = flag | PR_RISCV_V_VSTATE_CTRL_ON;
++
++	EXPECT_EQ(0, test_and_compare_child(flag, expected, 0, xtheadvector));
++}
++
++TEST(vstate_on_inherit)
++{
++	long flag, expected;
++	int xtheadvector = 0;
++
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
+ 
+ 	/* Turn on next's vector explicitly and test inherit */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_ON << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+ 	flag |= PR_RISCV_V_VSTATE_CTRL_INHERIT;
+ 	expected = flag | PR_RISCV_V_VSTATE_CTRL_ON;
+-	if (test_and_compare_child(flag, expected, 0))
+-		return -8;
+ 
+-	if (test_and_compare_child(flag, expected, 1))
+-		return -9;
++	EXPECT_EQ(0, test_and_compare_child(flag, expected, 1, xtheadvector));
++}
++
++TEST(vstate_off_inherit_no_nesting)
++{
++	long flag, expected;
++	int xtheadvector = 0;
++
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
++	/* Turn off next's vector explicitly and test no inherit */
++	flag = PR_RISCV_V_VSTATE_CTRL_OFF << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
++	flag |= PR_RISCV_V_VSTATE_CTRL_INHERIT;
++	expected = flag | PR_RISCV_V_VSTATE_CTRL_OFF;
++
++	EXPECT_EQ(0, test_and_compare_child(flag, expected, 0, xtheadvector));
++}
++
++TEST(vstate_off_inherit)
++{
++	long flag, expected;
++	int xtheadvector = 0;
++
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
+ 
+ 	/* Turn off next's vector explicitly and test inherit */
+ 	flag = PR_RISCV_V_VSTATE_CTRL_OFF << PR_RISCV_V_VSTATE_CTRL_NEXT_SHIFT;
+ 	flag |= PR_RISCV_V_VSTATE_CTRL_INHERIT;
+ 	expected = flag | PR_RISCV_V_VSTATE_CTRL_OFF;
+-	if (test_and_compare_child(flag, expected, 0))
+-		return -10;
+ 
+-	if (test_and_compare_child(flag, expected, 1))
+-		return -11;
++	EXPECT_EQ(0, test_and_compare_child(flag, expected, 1, xtheadvector));
++}
++
++/* arguments should fail with EINVAL */
++TEST(inval_set_control_1)
++{
++	int rc;
++
++	if (!is_vector_supported() && !is_xtheadvector_supported())
++		SKIP(return, "Vector not supported");
+ 
+-	/* arguments should fail with EINVAL */
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, 0xff0);
+-	if (rc != -1 || errno != EINVAL) {
+-		ksft_test_result_fail("Undefined control argument should return EINVAL\n");
+-		return -12;
+-	}
++	EXPECT_EQ(-1, rc);
++	EXPECT_EQ(EINVAL, errno);
++}
++
++/* arguments should fail with EINVAL */
++TEST(inval_set_control_2)
++{
++	int rc;
++
++	if (!is_vector_supported() && !is_xtheadvector_supported())
++		SKIP(return, "Vector not supported");
+ 
+ 	rc = prctl(PR_RISCV_V_SET_CONTROL, 0x3);
+-	if (rc != -1 || errno != EINVAL) {
+-		ksft_test_result_fail("Undefined control argument should return EINVAL\n");
+-		return -12;
+-	}
++	EXPECT_EQ(-1, rc);
++	EXPECT_EQ(EINVAL, errno);
++}
+ 
+-	rc = prctl(PR_RISCV_V_SET_CONTROL, 0xc);
+-	if (rc != -1 || errno != EINVAL) {
+-		ksft_test_result_fail("Undefined control argument should return EINVAL\n");
+-		return -12;
+-	}
++/* arguments should fail with EINVAL */
++TEST(inval_set_control_3)
++{
++	int rc;
+ 
+-	rc = prctl(PR_RISCV_V_SET_CONTROL, 0xc);
+-	if (rc != -1 || errno != EINVAL) {
+-		ksft_test_result_fail("Undefined control argument should return EINVAL\n");
+-		return -12;
+-	}
++	if (!is_vector_supported() && !is_xtheadvector_supported())
++		SKIP(return, "Vector not supported");
+ 
+-	ksft_test_result_pass("tests for riscv_v_vstate_ctrl pass\n");
+-	ksft_exit_pass();
+-	return 0;
++	rc = prctl(PR_RISCV_V_SET_CONTROL, 0xc);
++	EXPECT_EQ(-1, rc);
++	EXPECT_EQ(EINVAL, errno);
+ }
++
++TEST_HARNESS_MAIN

@@ -29,11 +29,7 @@ linuxKernel.manualConfig {
   kernelPatches = [
     {
     name = "xthead";
-    patch = ./xtheadvector-v9.patch;
-    }
-    {
-    name = "plic";
-    patch = ./v3-irqchip-sifive-plic-Probe-plic-driver-early-for-Allwinner-D1-platform.patch;
+    patch = ./v9-xtheadvector-remake.patch;
     }
   ];
 
