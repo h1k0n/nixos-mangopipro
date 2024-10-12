@@ -10,9 +10,12 @@
 } @ args:
 (
 let
-  src = fetchTarball {
-    url = "https://git.kernel.org/pub/scm/linux/kernel/git/palmer/linux.git/snapshot/linux-b3f835cd7339919561866252a11831ead72e7073.tar.gz";
-    sha256 = "1icab8ly0ksmw0h72cq7c9wwyfz78s9qk7nsgbrpkq810lr8v2nc";
+  src = fetchFromGitHub {
+    owner = "torvalds";
+    repo = "linux";
+    # Last git revision from the `riscv/d1-wip` branch:
+    rev = "v6.11";
+    sha256 = "sha256-QIbHTLWI5CaStQmuoJ1k7odQUDRLsWNGY10ek0eKo8M=";
   };
   version = "6.11.0";
   kernelStdenv = overrideCC stdenv buildPackages.gcc14;
@@ -22,7 +25,7 @@ in
 linuxKernel.manualConfig {
   inherit src version lib;
   stdenv = kernelStdenv.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
-  modDirVersion = "6.11.0-rc2";
+  modDirVersion = "6.11.0";
   kernelPatches = [
     {
     name = "xthead";
@@ -34,7 +37,7 @@ linuxKernel.manualConfig {
     }
   ];
 
-  configfile = ./6.11.config;
+  configfile = ./6.11-final.config;
   allowImportFromDerivation = true;
 }
 ).overrideAttrs (old: {
