@@ -2,7 +2,7 @@
 
 {
 
-  imports = [ "sd-image-btrfs.nix" ];
+  imports = [ ./sd-image-btrfs.nix ];
 
   # Boot0 -> U-Boot
   sdImage = {

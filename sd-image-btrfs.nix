@@ -11,12 +11,12 @@
 # The derivation for the SD image will be placed in
 # config.system.build.sdImage
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, modulesPath, ... }:
 
 with lib;
 
 let
-  rootfsImage = pkgs.callPackage ../../../lib/make-btrfs-fs.nix ({
+  rootfsImage = pkgs.callPackage "${modulesPath}/../lib/make-btrfs-fs.nix" ({
     inherit (config.sdImage) storePaths;
     compressImage = true;
     populateImageCommands = config.sdImage.populateRootCommands;
@@ -27,7 +27,7 @@ let
 in
 {
   imports = [
-    ../../profiles/all-hardware.nix
+    "${modulesPath}/profiles/all-hardware.nix"
   ];
 
   options.sdImage = {
@@ -53,7 +53,7 @@ in
       '';
     };
 
-    bootPartitionOffset = mkOption {
+    firmwarePartitionOffset = mkOption {
       type = types.int;
       default = 8;
       description = ''
@@ -104,7 +104,7 @@ in
       '';
     };
 
-    populateBootCommands = mkOption {
+    populateFirmwareCommands = mkOption {
       example = literalExpression "'' cp \${pkgs.myBootLoader}/u-boot.bin boot/ ''";
       description = ''
         Shell commands to populate the ./boot directory.
@@ -189,7 +189,7 @@ in
         zstd -d --no-progress "${rootfsImage}" -o ./root-fs.img
 
         # Gap in front of the first partition, in MiB
-        gap=${toString config.sdImage.bootPartitionOffset}
+        gap=${toString config.sdImage.firmwarePartitionOffset}
 
         # Create the image file sized to fit /boot and /, plus slack for the gap.
         rootSizeBlocks=$(du -B 512 --apparent-size ./root-fs.img | awk '{ print $1 }')
@@ -219,7 +219,7 @@ in
 
         # Populate the files intended for /boot
         mkdir boot
-        ${config.sdImage.populateBootCommands}
+        ${config.sdImage.populateFirmwareCommands}
 
         # Copy the populated /boot into the SD image
         (cd boot; mcopy -psvm -i ../boot_part.img ./* ::)
