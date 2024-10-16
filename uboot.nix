@@ -16,7 +16,6 @@ buildUBoot {
     sha256 = "sha256-c4yHizDvfRTqnxyKzNrSPCdlesBWuzgyQIEhpR690Vc=";
   };
   patches = [
-    ./uboot.patch
   ];
 
   defconfig = "nezha_defconfig";
