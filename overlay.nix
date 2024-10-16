@@ -4,9 +4,6 @@ rec {
   buildUB = prev.callPackage ./uboot-default.nix {
     stdenv = prev.gcc14Stdenv;
   };
-  ubootLicheeRV = prev.callPackage ./uboot.nix {
-    buildUBoot = final.buildUB.buildUBoot;
-  };
   linux_nezha = prev.callPackage ./linux.nix {
   };
   linuxPackages_nezha = packagesFor linux_nezha;

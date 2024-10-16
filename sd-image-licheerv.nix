@@ -8,7 +8,7 @@
   sdImage = {
     firmwarePartitionOffset = 20;
     postBuildCommands = ''
-      dd conv=notrunc if=${pkgsKernel.ubootLicheeRV}/u-boot-sunxi-with-spl.bin of=$img bs=512 seek=16
+      dd conv=notrunc if=${pkgsKernel.buildUB.ubootD1}/u-boot-sunxi-with-spl.bin of=$img bs=512 seek=16
     '';
     populateRootCommands = ''
       mkdir -p ./files/boot
