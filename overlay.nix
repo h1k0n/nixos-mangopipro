@@ -2,7 +2,7 @@ final: prev:
 
 rec {
   buildUB = prev.callPackage ./uboot-default.nix {
-    stdenv = prev.gcc14Stdenv;
+    stdenv = final.gcc14Stdenv;
   };
   linux_nezha = prev.callPackage ./linux.nix {
   };

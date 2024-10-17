@@ -3,7 +3,7 @@
 , stdenv
 , linuxKernel
 , writeText
-, ubootTools
+, buildUB 
 , overrideCC
 , buildPackages
 , ...
@@ -32,5 +32,5 @@ linuxKernel.manualConfig {
 }
 ).overrideAttrs (old: {
   name = "k"; # shorten the kernel name, dodge uboot length limits, otherwise it will make uboot fail to load kernel. 
-  nativeBuildInputs = old.nativeBuildInputs ++ [ubootTools];
+  nativeBuildInputs = old.nativeBuildInputs ++ [buildUB.ubootTools];
 })
