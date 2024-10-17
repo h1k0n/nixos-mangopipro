@@ -26,12 +26,6 @@ linuxKernel.manualConfig {
   inherit src version lib;
   stdenv = kernelStdenv.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
   modDirVersion = "6.11.0";
-  kernelPatches = [
-    {
-    name = "xthead";
-    patch = ./v9-xtheadvector-remake.patch;
-    }
-  ];
 
   configfile = ./6.11-final.config;
   allowImportFromDerivation = true;
