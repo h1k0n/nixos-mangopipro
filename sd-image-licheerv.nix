@@ -2,7 +2,7 @@
 
 {
 
-  imports = [ "${modulesPath}/installer/sd-card/sd-image.nix" ];
+  imports = [ ./sdimage-ext4.nix ];
 
   # Boot0 -> U-Boot
   sdImage = {
