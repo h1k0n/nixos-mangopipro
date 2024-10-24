@@ -180,10 +180,10 @@ in
     sdImage.storePaths = [ config.system.build.toplevel ];
 
     system.build.sdImage = pkgs.callPackage ({ stdenv, dosfstools, e2fsprogs,
-    mtools, libfaketime, util-linux, zstd }: stdenv.mkDerivation {
+    mtools, libfaketime, util-linux, zstd, gptfdisk }: stdenv.mkDerivation {
       name = config.sdImage.imageName;
 
-      nativeBuildInputs = [ dosfstools e2fsprogs libfaketime mtools util-linux ]
+      nativeBuildInputs = [ dosfstools e2fsprogs libfaketime mtools util-linux gptfdisk ]
       ++ lib.optional config.sdImage.compressImage zstd;
 
       inherit (config.sdImage) imageName compressImage;
@@ -212,21 +212,16 @@ in
         # Create the image file sized to fit /boot/firmware and /, plus slack for the gap.
         rootSizeBlocks=$(du -B 512 --apparent-size $root_fs | awk '{ print $1 }')
         firmwareSizeBlocks=$((${toString config.sdImage.firmwareSize} * 1024 * 1024 / 512))
-        imageSize=$((rootSizeBlocks * 512 + firmwareSizeBlocks * 512 + gap * 1024 * 1024))
+        imageSize=$((rootSizeBlocks * 512 + firmwareSizeBlocks * 512 + gap * 1024 * 1024 + 100 * 512))
         truncate -s $imageSize $img
 
         # type=b is 'W95 FAT32', type=83 is 'Linux'.
         # The "bootable" partition is where u-boot will look file for the bootloader
         # information (dtbs, extlinux.conf file).
-          sfdisk $img <<EOF
-              label: gpt
-              label-id: ${config.sdImage.firmwarePartitionID}
-              unit: sectors
-              sector-size: 512
-
-              start=''${gap}M, size=$firmwareSizeBlocks, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7
-              start=$((gap + ${toString config.sdImage.firmwareSize}))M, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, bootable
-          EOF
+        sgdisk --clear --set-alignment=2 \
+          --new=1:''${gap}M:+${toString config.sdImage.firmwareSize}M --change-name=1:boot --typecode=1:EBD0A0A2-B9E5-4433-87C0-68B6B72699C7 \
+          --new=2:$((gap + ${toString config.sdImage.firmwareSize}))M:+''${rootSizeBlocks} --change-name=2:root --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4 -A 2:set:2 \
+        $img
 
         # Copy the rootfs into the SD image
         eval $(partx $img -o START,SECTORS --nr 2 --pairs)
