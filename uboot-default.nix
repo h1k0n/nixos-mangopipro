@@ -663,6 +663,13 @@ ubootD1 = buildUBoot {
   ];
 
   defconfig = "nezha_defconfig";
+  extraConfig = ''
+    CONFIG_LZ4=y
+    CONFIG_BZIP2=y
+    CONFIG_ZSTD=y
+    CONFIG_FS_BTRFS=y
+    CONFIG_CMD_BTRFS=y
+  '';
   extraMeta.platforms = [ "riscv64-linux" ];
   extraMakeFlags = [
     "OPENSBI=${opensbi}/share/opensbi/lp64/generic/firmware/fw_dynamic.bin"
