@@ -2,7 +2,7 @@
 
 {
 
-  imports = [ ./sdimage-ext4.nix ];
+  imports = [ ./sd-image-btrfs.nix ];
 
   # Boot0 -> U-Boot
   sdImage = {
@@ -26,10 +26,10 @@
 
     consoleLogLevel = lib.mkDefault 7;
     kernelPackages = pkgsKernel.linuxPackages_nezha;
-    kernelParams = [ "earlycon=sbi" "root=/dev/mmcblk0p2" "rootfstype=ext4" "console=ttyS0,115200n8" "rootwait" "cma=96M" "debug" ];
+    kernelParams = [ "earlycon=sbi" "root=/dev/mmcblk0p2" "rootfstype=btrfs" "console=ttyS0,115200n8" "rootwait" "cma=96M" "debug" ];
 
     initrd.availableKernelModules = lib.mkForce [
-      "ext4" "sd_mod" "mmc_block"
+      "btrfs" "sd_mod" "mmc_block"
       "xhci_hcd"
       "usbhid" "hid_generic"
     ];
