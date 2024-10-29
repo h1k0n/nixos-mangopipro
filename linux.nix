@@ -1,4 +1,4 @@
-{ fetchFromGitHub
+{ fetchurl
 , lib
 , stdenv
 , linuxKernel
@@ -10,14 +10,11 @@
 } @ args:
 (
 let
-  src = fetchFromGitHub {
-    owner = "torvalds";
-    repo = "linux";
-    # Last git revision from the `riscv/d1-wip` branch:
-    rev = "v6.11";
-    sha256 = "sha256-QIbHTLWI5CaStQmuoJ1k7odQUDRLsWNGY10ek0eKo8M=";
+  src = fetchurl {
+    url = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.11.5.tar.xz";
+    sha256 = "sha256-RxSFs7fy+2N72P49AJRMTBNcfY7gLzV/M2kLqrB1Kgc=";
   };
-  version = "6.11.0";
+  version = "6.11.5";
   kernelStdenv = overrideCC stdenv buildPackages.gcc14;
 in
 
@@ -25,7 +22,7 @@ in
 linuxKernel.manualConfig {
   inherit src version lib;
   stdenv = kernelStdenv.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
-  modDirVersion = "6.11.0";
+  modDirVersion = "6.11.5";
 
   configfile = ./6.11-final.config;
   allowImportFromDerivation = true;

@@ -1,3 +1,4 @@
+{pkgs, ...}:
 let
   username = "nixos";
   hostname = "mangopipro";
@@ -27,6 +28,11 @@ in {
     home = "/home/${username}";
     extraGroups = ["users" "networkmanager" "wheel" "docker"];
   };
+  environment.systemPackages = with pkgs; [
+    git # used by nix flakes
+    curl
+    gdb
+  ];
 
 
   users.groups = {
