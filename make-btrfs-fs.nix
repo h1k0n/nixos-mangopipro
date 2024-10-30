@@ -17,6 +17,7 @@
 , btrfs-progs
 , libfaketime
 , fakeroot
+, pkgsNative
 }:
 
 let
@@ -25,7 +26,7 @@ in
 pkgs.stdenv.mkDerivation {
   name = "btrfs-fs.img${lib.optionalString compressImage ".zst"}";
 
-  nativeBuildInputs = [ btrfs-progs libfaketime fakeroot ] ++ lib.optional compressImage zstd;
+  nativeBuildInputs = [ pkgsNative.btrfs-progs libfaketime fakeroot ] ++ lib.optional compressImage zstd;
 
   buildCommand =
     ''

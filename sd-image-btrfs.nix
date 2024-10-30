@@ -11,40 +11,17 @@
 # The derivation for the SD image will be placed in
 # config.system.build.sdImage
 
-{ config, lib, pkgs, modulesPath, ... }:
+{ config, lib, pkgs, modulesPath, pkgsNative, ... }:
 
 with lib;
 
 let
   rootfsImage = pkgs.callPackage ./make-btrfs-fs.nix ({
     inherit (config.sdImage) storePaths;
+    inherit pkgsNative;
     compressImage = config.sdImage.compressImage;
     populateImageCommands = config.sdImage.populateRootCommands;
     volumeLabel = "NIXOS_SD";
-          btrfs-progs = pkgs.btrfs-progs.overrideAttrs (oldAttrs: {
-            src = pkgs.fetchFromGitHub {
-              owner = "kdave";
-              repo = "btrfs-progs";
-              # devel 2024.09.10; Remove v6.11 release.
-              rev = "c75b2f2c77c9fdace08a57fe4515b45a4616fa21";
-              hash = "sha256-PgispmDnulTDeNnuEDdFO8FGWlGx/e4cP8MQMd9opFw=";
-            };
-
-            patches = [
-              ./mkfs-btrfs-force-root-ownership.patch
-            ];
-            postPatch = "";
-
-            nativeBuildInputs =
-              oldAttrs.nativeBuildInputs
-              ++ [
-                pkgs.autoconf
-                pkgs.automake
-              ];
-            preConfigure = "./autogen.sh";
-
-            version = "6.11.0.pre";
-          });
   } // optionalAttrs (config.sdImage.rootPartitionUUID != null) {
     uuid = config.sdImage.rootPartitionUUID;
   });

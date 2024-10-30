@@ -55,6 +55,13 @@
         (import ./overlay.nix)
       ];
     };
+    pkgsKernelNative = import nixpkgs {
+      localSystem = "x86_64-linux";
+
+      overlays = [
+        (import ./overlay.nix)
+      ];
+    };
   in {
     # expose this flake's overlay
 
@@ -64,6 +71,7 @@
 
       specialArgs = {
         pkgsKernel = pkgsKernelCross;
+        pkgsNative = pkgsKernelNative;
       };
       modules = [
         {
