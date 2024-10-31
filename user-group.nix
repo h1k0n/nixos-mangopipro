@@ -1,4 +1,4 @@
-{pkgs, ...}:
+{pkgs, pkgsGcc14, ...}:
 let
   username = "nixos";
   hostname = "mangopipro";
@@ -32,6 +32,7 @@ in {
     git # used by nix flakes
     curl
     gdb
+    pkgsGcc14.pkgsCross.riscv64.gcc14
   ];
 
 

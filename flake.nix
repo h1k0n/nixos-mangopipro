@@ -62,6 +62,36 @@
         (import ./overlay.nix)
       ];
     };
+    pkgsGcc = import nixpkgs {
+      localSystem = "x86_64-linux";
+      overlays = [
+    (final: prev:
+      {
+        gcc_latest = final.gcc14;
+        gcc14 = prev.wrapCC ((prev.gcc13.cc.override (self: {
+          stdenv =
+            if self.stdenv.buildPlatform == self.stdenv.hostPlatform
+            then self.stdenv
+            # NOTE: needed to build `libstdc++-v3` since it uses `std=gnu++26` which `13.2.0`
+            # doesn't support, and local `xgcc` doesn't get built when `buildPlatform !=
+            # hostPlatform`.
+            else prev.overrideCC self.stdenv final.buildPackages.gcc14;
+        })).overrideAttrs (oldAttrs:
+          let snapshot = "20241026"; in
+          rec {
+            version = "14.0.0-${snapshot}";
+            name = "gcc-${version}";
+            passthru = oldAttrs.passthru // { inherit version; };
+            src = prev.stdenv.fetchurlBoot {
+              url = "https://gcc.gnu.org/pub/gcc/snapshots/LATEST-14/gcc-14-${snapshot}.tar.xz";
+              hash = "sha256-7tIJJkdrDHDUjTsXXGiVvwVH3IvVrZMP3PiuBRN0HE8=";
+            };
+            nativeBuildInputs = oldAttrs.nativeBuildInputs ++ [ prev.buildPackages.flex ];
+          }));
+        gcc14Stdenv = prev.overrideCC final.gccStdenv final.gcc14;
+      })
+  ];
+   };
   in {
     # expose this flake's overlay
 
@@ -72,6 +102,7 @@
       specialArgs = {
         pkgsKernel = pkgsKernelCross;
         pkgsNative = pkgsKernelNative;
+        pkgsGcc14 = pkgsGcc;
       };
       modules = [
         {
