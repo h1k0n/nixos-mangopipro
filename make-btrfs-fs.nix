@@ -18,6 +18,7 @@
 , libfaketime
 , fakeroot
 , pkgsNative
+, subvolMap ? {}
 }:
 
 let
@@ -29,6 +30,23 @@ pkgs.stdenv.mkDerivation {
   nativeBuildInputs = [ pkgsNative.btrfs-progs libfaketime fakeroot ] ++ lib.optional compressImage zstd;
 
   buildCommand =
+    let
+      # XXX: Nested subvols will not work
+      rootIsSubvol = builtins.elem "/" (builtins.attrNames subvolMap);
+      rootImagePath =
+        if rootIsSubvol
+        then "./rootImage/${subvolMap."/"}"
+        else "./rootImage";
+      rootSubvolCmd = lib.optionalString rootIsSubvol ''
+        mv ./rootImage rootSubVol
+        mkdir ./rootImage
+        mv ./rootSubVol ./rootImage/${subvolMap."/"}
+      '';
+
+      filteredSubvolMap = builtins.removeAttrs subvolMap ["/"];
+      subvolMovePaths = builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (origPath: subvolPath: "[ -d ${rootImagePath}/${origPath} ] && mv ${rootImagePath}/${origPath} ./rootImage/${subvolPath} || mkdir ./rootImage/${subvolPath}") filteredSubvolMap));
+      subvolMkfsArgs = builtins.concatStringsSep " " (builtins.attrValues (builtins.mapAttrs (_: subvolPath: "--subvol \"${subvolPath}\"") subvolMap));
+    in
     ''
       ${if compressImage then "img=temp.img" else "img=$out"}
 
@@ -51,9 +69,11 @@ pkgs.stdenv.mkDerivation {
       )
 
       cp ${sdClosureInfo}/registration ./rootImage/nix-path-registration
+      ${rootSubvolCmd}
+      ${subvolMovePaths}
 
       touch $img
-      faketime -f "1970-01-01 00:00:01" mkfs.btrfs -L ${volumeLabel} -U ${uuid} -r ./rootImage --shrink $img
+      faketime -f "1970-01-01 00:00:01" mkfs.btrfs -L ${volumeLabel} -U ${uuid} ${subvolMkfsArgs} -r ./rootImage --shrink $img
 
       if ! btrfs check $img; then
         echo "--- 'btrfs check' failed for BTRFS image ---"

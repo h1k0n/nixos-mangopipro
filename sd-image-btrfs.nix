@@ -22,6 +22,18 @@ let
     compressImage = config.sdImage.compressImage;
     populateImageCommands = config.sdImage.populateRootCommands;
     volumeLabel = "NIXOS_SD";
+          subvolMap = let
+            # UUID is for BTRFS root device, not just subvol ones.  Ooops.
+            fileSystems = builtins.filter (fs: ((builtins.any (opt: lib.hasPrefix "subvol=" opt) fs.options))) config.system.build.fileSystems;
+            stripSubVolOption = opt: lib.removePrefix "subvol=" opt;
+            getSubVolOption = opts: stripSubVolOption (builtins.head (builtins.filter (opt: lib.hasPrefix "subvol=" opt) opts));
+            subvolMap = builtins.listToAttrs (builtins.map (fs: {
+                name = "${fs.mountPoint}";
+                value = "${getSubVolOption fs.options}";
+              })
+              fileSystems);
+          in
+            subvolMap;
   } // optionalAttrs (config.sdImage.rootPartitionUUID != null) {
     uuid = config.sdImage.rootPartitionUUID;
   });
@@ -175,6 +187,7 @@ in
       "/" = {
         device = "/dev/disk/by-label/NIXOS_SD";
         fsType = "btrfs";
+          options = ["compress=zstd"];
       };
     };
 
