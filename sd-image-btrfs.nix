@@ -166,7 +166,7 @@ in
 
     nixPathRegistrationFile = mkOption {
       type = types.str;
-      default = "/nix-path-registration";
+      default = "/nix/nix-path-registration";
       description = ''
         Location of the file containing the input for nix-store --load-db once the machine has booted.
         If overriding fileSystems."/" then you should to set this to the root mount + /nix-path-registration
@@ -187,7 +187,7 @@ in
       "/" = {
         device = "/dev/disk/by-label/NIXOS_SD";
         fsType = "btrfs";
-          options = ["compress=zstd"];
+          options = ["compress=zstd:8"];
       };
     };
 
