@@ -187,8 +187,18 @@ in
       "/" = {
         device = "/dev/disk/by-label/NIXOS_SD";
         fsType = "btrfs";
-          options = ["compress=zstd:8"];
+          options = ["compress=zstd:8" "subvol=/@"];
       };
+        "/boot" = {
+          device = "/dev/disk/by-label/NIXOS_SD";
+          fsType = "btrfs";
+          options = ["compress=zstd:8" "subvol=/@boot"];
+        };
+        "/nix" = {
+          device = "/dev/disk/by-label/NIXOS_SD";
+          fsType = "btrfs";
+          options = ["compress=zstd:8" "noatime" "subvol=/@nix"];
+        };
     };
 
     sdImage.storePaths = [ config.system.build.toplevel ];

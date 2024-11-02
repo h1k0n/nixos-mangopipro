@@ -1,0 +1,12 @@
+diff -uNr u-boot/include/config_distro_bootcmd.h u-boot-new/include/config_distro_bootcmd.h
+--- u-boot/include/config_distro_bootcmd.h	2024-11-02 08:44:11.572236475 +0800
++++ u-boot-new/include/config_distro_bootcmd.h	2024-11-02 08:55:45.877202594 +0800
+@@ -468,7 +468,7 @@
+ 	BOOTENV_SHARED_EFI \
+ 	BOOTENV_SHARED_VIRTIO \
+ 	BOOTENV_SHARED_EXTENSION \
+-	"boot_prefixes=/ /boot/\0" \
++	"boot_prefixes=/@boot/ /boot/ /\0" \
+ 	"boot_scripts=boot.scr.uimg boot.scr\0" \
+ 	"boot_script_dhcp=boot.scr.uimg\0" \
+ 	BOOTENV_BOOT_TARGETS \
