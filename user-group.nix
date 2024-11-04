@@ -33,7 +33,29 @@ in {
     curl
     gdb
     pkgsGcc14.pkgsCross.riscv64.gcc14
+    file
+    tree
+    neofetch
+    vim
+
+    # networking
+    mtr      # A network diagnostic tool
+    iperf3   # A tool for measuring TCP and UDP bandwidth performance
+    nmap     # A utility for network discovery and security auditing
+    ldns     # replacement of dig, it provide the command `drill`
+    socat    # replacement of openbsd-netcat
+    tcpdump  # A powerful command-line packet analyzer
+
+    # archives
+    zip
+    xz
+    unzip
+    p7zip
+    zstd
+    gnutar
   ];
+  services.journald.storage = "volatile";
+
 
 
   users.groups = {
