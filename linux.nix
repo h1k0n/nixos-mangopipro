@@ -11,10 +11,10 @@
 (
 let
   src = fetchurl {
-    url = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.11.5.tar.xz";
+    url = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.12.1.tar.gz";
     sha256 = "sha256-RxSFs7fy+2N72P49AJRMTBNcfY7gLzV/M2kLqrB1Kgc=";
   };
-  version = "6.11.5";
+  version = "6.12.1";
   kernelStdenv = overrideCC stdenv buildPackages.gcc14;
 in
 
@@ -22,9 +22,9 @@ in
 linuxKernel.manualConfig {
   inherit src version lib;
   stdenv = kernelStdenv.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
-  modDirVersion = "6.11.5";
+  modDirVersion = "6.12.1";
 
-  configfile = ./6.11-final.config;
+  configfile = ./6.12.1.config;
   allowImportFromDerivation = true;
 }
 ).overrideAttrs (old: {
