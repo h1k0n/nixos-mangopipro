@@ -8816,19 +8816,6 @@ diff -uNr linux-6.12.1/riscv-Add-support-for-xtheadvector.patch linux/riscv-Add-
 + 
 + extern __printf(4, 5)
 + struct device *cpu_device_create(struct device *parent, void *drvdata,
-diff -uNr linux-6.12.1/scripts/dtc/include-prefixes/riscv/allwinner/sun20i-d1s.dtsi linux/scripts/dtc/include-prefixes/riscv/allwinner/sun20i-d1s.dtsi
---- linux-6.12.1/scripts/dtc/include-prefixes/riscv/allwinner/sun20i-d1s.dtsi	2024-11-22 14:30:26.000000000 +0000
-+++ linux/scripts/dtc/include-prefixes/riscv/allwinner/sun20i-d1s.dtsi	2024-11-29 08:52:42.446116701 +0000
-@@ -27,7 +27,8 @@
- 			riscv,isa = "rv64imafdc";
- 			riscv,isa-base = "rv64i";
- 			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr",
--					       "zifencei", "zihpm";
-+					       "zifencei", "zihpm", "xtheadvector";
-+			thead,vlenb = <128>;
- 			#cooling-cells = <2>;
- 
- 			cpu0_intc: interrupt-controller {
 diff -uNr linux-6.12.1/tools/testing/selftests/riscv/vector/.gitignore linux/tools/testing/selftests/riscv/vector/.gitignore
 --- linux-6.12.1/tools/testing/selftests/riscv/vector/.gitignore	2024-11-22 14:30:26.000000000 +0000
 +++ linux/tools/testing/selftests/riscv/vector/.gitignore	2024-11-29 08:52:42.459450610 +0000
