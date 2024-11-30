@@ -23,6 +23,12 @@ linuxKernel.manualConfig {
   inherit src version lib;
   stdenv = kernelStdenv.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
   modDirVersion = "6.12.1";
+  kernelPatches = [
+    {
+    name = "xthead";
+    patch = ./xtheadvector-6.12.1-new.patch;
+    }
+  ];
 
   configfile = ./xtheadvector-btrfs.config;
   allowImportFromDerivation = true;
