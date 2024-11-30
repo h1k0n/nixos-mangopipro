@@ -666,6 +666,7 @@ ubootD1 = buildUBoot {
       hash = "sha256-eACraQRT+ejM6pIwr08T2vqqEN+AAvtk37e3Q4a+BKA=";
     })
     ./gen.patch
+    ./uboot.patch
   ];
 
   defconfig = "nezha_defconfig";

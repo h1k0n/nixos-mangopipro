@@ -12,7 +12,7 @@
 let
   src = fetchurl {
     url = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.12.1.tar.gz";
-    sha256 = "sha256-RxSFs7fy+2N72P49AJRMTBNcfY7gLzV/M2kLqrB1Kgc=";
+    sha256 = "sha256-q4Nv10gk+lKFnY57xaYI9oS06AJpudztEQkHj9joVVA=";
   };
   version = "6.12.1";
   kernelStdenv = overrideCC stdenv buildPackages.gcc14;
@@ -24,7 +24,7 @@ linuxKernel.manualConfig {
   stdenv = kernelStdenv.override (prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; });
   modDirVersion = "6.12.1";
 
-  configfile = ./6.12.1.config;
+  configfile = ./xtheadvector-btrfs.config;
   allowImportFromDerivation = true;
 }
 ).overrideAttrs (old: {
