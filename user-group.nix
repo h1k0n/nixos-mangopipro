@@ -53,8 +53,11 @@ in {
     p7zip
     zstd
     gnutar
+    iotop
   ];
   services.journald.storage = "volatile";
+  services.journald.rateLimitBurst = 300;
+  services.journald.extraConfig = "MaxLevelStore=info\nMaxLevelSyslog=info\nMaxLevelKMsg=notice\nMaxLevelConsole=info\nMaxLevelWall=emerg"
 
 
 
