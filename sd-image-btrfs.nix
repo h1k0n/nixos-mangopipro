@@ -187,7 +187,7 @@ in
       "/" = {
         device = "/dev/disk/by-label/NIXOS_SD";
         fsType = "btrfs";
-          options = ["compress=zstd:8" "noatime"];
+          options = ["compress=zstd:8" "noatime" "commit=5"];
       };
     };
 
