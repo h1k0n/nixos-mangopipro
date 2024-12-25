@@ -27,6 +27,11 @@
     consoleLogLevel = lib.mkDefault 7;
     kernelPackages = pkgsKernel.linuxPackages_nezha;
     kernelParams = [ "earlycon=sbi" "root=/dev/mmcblk0p2" "rootfstype=btrfs" "console=ttyS0,115200n8" "rootwait" "cma=96M" "debug" ];
+    kernel.sysctl = {
+      "vm.dirty_background_ratio" = 5;
+      "vm.dirty_ratio" = 10;
+      "kernel.hung_task_timeout_secs" = 300;
+    };
 
     initrd.availableKernelModules = lib.mkForce [
       "btrfs" "sd_mod" "mmc_block"
@@ -41,6 +46,7 @@
       "ext4"
       "btrfs"
     ];
+    readOnlyNixStore = false;
   };
   hardware = {
     deviceTree = {
