@@ -54,6 +54,9 @@ in {
     zstd
     gnutar
     iotop
+    ioping
+    fio
+    sysstat
   ];
   services.journald.storage = "volatile";
   services.journald.rateLimitBurst = 300;

@@ -32,19 +32,21 @@
       "vm.dirty_ratio" = 10;
       "kernel.hung_task_timeout_secs" = 300;
     };
-
+    initrd.kernelModules = lib.mkForce [
+      "dm_mod"
+    ];
     initrd.availableKernelModules = lib.mkForce [
       "btrfs" "sd_mod" "mmc_block"
-      "xhci_hcd"
+      "hid" "nvme" "xhci_hcd"
       "usbhid" "hid_generic"
     ];
 
     extraModulePackages = [ pkgsKernel.linuxPackages_nezha.rtl8723ds ];
     # Exclude zfs
     supportedFilesystems = lib.mkForce [
+      "btrfs"
       "vfat"
       "ext4"
-      "btrfs"
     ];
     readOnlyNixStore = false;
   };
