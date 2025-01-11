@@ -59,7 +59,34 @@
       localSystem = "x86_64-linux";
 
       overlays = [
-        (import ./overlay.nix)
+        (final: prev:
+
+rec {
+          btrfs-progs = prev.btrfs-progs.overrideAttrs (oldAttrs: {
+            src = prev.fetchFromGitHub {
+              owner = "kdave";
+              repo = "btrfs-progs";
+              # devel 2024.09.10; Remove v6.11 release.
+              rev = "c75b2f2c77c9fdace08a57fe4515b45a4616fa21";
+              hash = "sha256-PgispmDnulTDeNnuEDdFO8FGWlGx/e4cP8MQMd9opFw=";
+            };
+
+            patches = [
+              ./mkfs-btrfs-force-root-ownership.patch
+            ];
+            postPatch = "";
+            nativeBuildInputs =
+              oldAttrs.nativeBuildInputs
+              ++ [
+                prev.autoconf
+                prev.automake
+              ];
+
+            preConfigure = "./autogen.sh";
+
+            version = "6.11.0.pre";
+          });
+})
       ];
     };
     pkgsGcc = import nixpkgs {
@@ -76,15 +103,16 @@
             # doesn't support, and local `xgcc` doesn't get built when `buildPlatform !=
             # hostPlatform`.
             else prev.overrideCC self.stdenv final.buildPackages.gcc14;
+          majorMinorVersion = "14";
         })).overrideAttrs (oldAttrs:
-          let snapshot = "20241026"; in
+          let snapshot = "20241116"; in
           rec {
-            version = "14.0.0-${snapshot}";
+            version = "14-${snapshot}";
             name = "gcc-${version}";
             passthru = oldAttrs.passthru // { inherit version; };
             src = prev.stdenv.fetchurlBoot {
-              url = "https://gcc.gnu.org/pub/gcc/snapshots/LATEST-14/gcc-14-${snapshot}.tar.xz";
-              hash = "sha256-7tIJJkdrDHDUjTsXXGiVvwVH3IvVrZMP3PiuBRN0HE8=";
+              url = "https://gcc.gnu.org/pub/gcc/snapshots/14-${snapshot}/gcc-14-${snapshot}.tar.xz";
+              hash = "sha256-aXSkle8Mzj/Q15cHOu0D9Os2PWQwMIboUZULhnsRSUo=";
             };
             nativeBuildInputs = oldAttrs.nativeBuildInputs ++ [ prev.buildPackages.flex ];
           }));
