@@ -1,8 +1,9 @@
-{ lib
-, fetchFromGitHub
-, buildUBoot
-, opensbi
-, writeText
+{
+  lib,
+  fetchFromGitHub,
+  buildUBoot,
+  opensbi,
+  writeText,
 }:
 
 buildUBoot {
@@ -26,5 +27,5 @@ buildUBoot {
     "DEVICE_TREE=sun20i-d1-lichee-rv-dock"
   ];
 
-  filesToInstall = ["u-boot-sunxi-with-spl.bin"];
+  filesToInstall = [ "u-boot-sunxi-with-spl.bin" ];
 }

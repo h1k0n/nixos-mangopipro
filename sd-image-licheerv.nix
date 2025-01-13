@@ -1,4 +1,11 @@
-{ config, lib, pkgs, modulesPath, pkgsKernel, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  modulesPath,
+  pkgsKernel,
+  ...
+}:
 
 {
 
@@ -26,19 +33,26 @@
 
     consoleLogLevel = lib.mkDefault 7;
     kernelPackages = pkgsKernel.linuxPackages_nezha;
-    kernelParams = [ "earlycon=sbi" "root=/dev/mmcblk0p2" "rootfstype=btrfs" "console=ttyS0,115200n8" "rootwait" "cma=96M" "debug" ];
-    kernel.sysctl = {
-      "vm.dirty_background_ratio" = 5;
-      "vm.dirty_ratio" = 10;
-      "kernel.hung_task_timeout_secs" = 300;
-    };
+    kernelParams = [
+      "earlycon=sbi"
+      "root=/dev/mmcblk0p2"
+      "rootfstype=btrfs"
+      "console=ttyS0,115200n8"
+      "rootwait"
+      "debug"
+    ];
     initrd.kernelModules = lib.mkForce [
       "dm_mod"
     ];
     initrd.availableKernelModules = lib.mkForce [
-      "btrfs" "sd_mod" "mmc_block"
-      "hid" "nvme" "xhci_hcd"
-      "usbhid" "hid_generic"
+      "btrfs"
+      "sd_mod"
+      "mmc_block"
+      "hid"
+      "nvme"
+      "xhci_hcd"
+      "usbhid"
+      "hid_generic"
     ];
 
     extraModulePackages = [ pkgsKernel.linuxPackages_nezha.rtl8723ds ];
@@ -57,7 +71,9 @@
   };
 
   nix.settings = {
-    experimental-features = [ "nix-command" "flakes" ];
+    experimental-features = [
+      "nix-command"
+      "flakes"
+    ];
   };
 }
-

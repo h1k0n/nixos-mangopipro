@@ -3,22 +3,24 @@
 # contents of a directory that can be populated with commands. The
 # generated image is sized to only fit its contents, with the expectation
 # that a script resizes the filesystem at boot time.
-{ pkgs
-, lib
-# List of derivations to be included
-, storePaths
-# Whether or not to compress the resulting image with zstd
-, compressImage ? false, zstd
-# Shell commands to populate the ./files directory.
-# All files in that directory are copied to the root of the FS.
-, populateImageCommands ? ""
-, volumeLabel
-, uuid ? "44444444-4444-4444-8888-888888888888"
-, btrfs-progs
-, libfaketime
-, fakeroot
-, pkgsNative
-, subvolMap ? {}
+{
+  pkgs,
+  lib,
+  # List of derivations to be included
+  storePaths,
+  # Whether or not to compress the resulting image with zstd
+  compressImage ? false,
+  zstd,
+  # Shell commands to populate the ./files directory.
+  # All files in that directory are copied to the root of the FS.
+  populateImageCommands ? "",
+  volumeLabel,
+  uuid ? "44444444-4444-4444-8888-888888888888",
+  btrfs-progs,
+  libfaketime,
+  fakeroot,
+  pkgsNative,
+  subvolMap ? { },
 }:
 
 let
@@ -27,25 +29,35 @@ in
 pkgs.stdenv.mkDerivation {
   name = "btrfs-fs.img${lib.optionalString compressImage ".zst"}";
 
-  nativeBuildInputs = [ pkgsNative.btrfs-progs libfaketime fakeroot ] ++ lib.optional compressImage zstd;
+  nativeBuildInputs = [
+    pkgsNative.btrfs-progs
+    libfaketime
+    fakeroot
+  ] ++ lib.optional compressImage zstd;
 
   buildCommand =
     let
       # XXX: Nested subvols will not work
       rootIsSubvol = builtins.elem "/" (builtins.attrNames subvolMap);
-      rootImagePath =
-        if rootIsSubvol
-        then "./rootImage/${subvolMap."/"}"
-        else "./rootImage";
+      rootImagePath = if rootIsSubvol then "./rootImage/${subvolMap."/"}" else "./rootImage";
       rootSubvolCmd = lib.optionalString rootIsSubvol ''
         mv ./rootImage rootSubVol
         mkdir ./rootImage
         mv ./rootSubVol ./rootImage/${subvolMap."/"}
       '';
 
-      filteredSubvolMap = builtins.removeAttrs subvolMap ["/"];
-      subvolMovePaths = builtins.concatStringsSep "\n" (builtins.attrValues (builtins.mapAttrs (origPath: subvolPath: "[ -d ${rootImagePath}/${origPath} ] && mv ${rootImagePath}/${origPath} ./rootImage/${subvolPath} || mkdir ./rootImage/${subvolPath}") filteredSubvolMap));
-      subvolMkfsArgs = builtins.concatStringsSep " " (builtins.attrValues (builtins.mapAttrs (_: subvolPath: "--subvol \"${subvolPath}\"") subvolMap));
+      filteredSubvolMap = builtins.removeAttrs subvolMap [ "/" ];
+      subvolMovePaths = builtins.concatStringsSep "\n" (
+        builtins.attrValues (
+          builtins.mapAttrs (
+            origPath: subvolPath:
+            "[ -d ${rootImagePath}/${origPath} ] && mv ${rootImagePath}/${origPath} ./rootImage/${subvolPath} || mkdir ./rootImage/${subvolPath}"
+          ) filteredSubvolMap
+        )
+      );
+      subvolMkfsArgs = builtins.concatStringsSep " " (
+        builtins.attrValues (builtins.mapAttrs (_: subvolPath: "--subvol \"${subvolPath}\"") subvolMap)
+      );
     in
     ''
       ${if compressImage then "img=temp.img" else "img=$out"}
