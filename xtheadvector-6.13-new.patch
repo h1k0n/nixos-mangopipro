@@ -1,0 +1,1574 @@
+diff -uNr linux-6.12.1/arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi linux/arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi
+--- linux-6.12.1/arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/boot/dts/allwinner/sun20i-d1s.dtsi	2024-11-29 08:52:42.446116701 +0000
+@@ -27,7 +27,8 @@
+ 			riscv,isa = "rv64imafdc";
+ 			riscv,isa-base = "rv64i";
+ 			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr",
+-					       "zifencei", "zihpm";
++					       "zifencei", "zihpm", "xtheadvector";
++			thead,vlenb = <128>;
+ 			#cooling-cells = <2>;
+ 
+ 			cpu0_intc: interrupt-controller {
+diff -uNr linux-6.12.1/arch/riscv/errata/thead/errata.c linux/arch/riscv/errata/thead/errata.c
+--- linux-6.12.1/arch/riscv/errata/thead/errata.c	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/errata/thead/errata.c	2024-11-29 08:52:42.462784086 +0000
+@@ -10,6 +10,7 @@
+ #include <linux/string.h>
+ #include <linux/uaccess.h>
+ #include <asm/alternative.h>
++#include <asm/bugs.h>
+ #include <asm/cacheflush.h>
+ #include <asm/cpufeature.h>
+ #include <asm/dma-noncoherent.h>
+@@ -142,6 +143,31 @@
+ 	return true;
+ }
+ 
++static bool errata_probe_ghostwrite(unsigned int stage,
++				    unsigned long arch_id, unsigned long impid)
++{
++	if (!IS_ENABLED(CONFIG_ERRATA_THEAD_GHOSTWRITE))
++		return false;
++
++	/*
++	 * target-c9xx cores report arch_id and impid as 0
++	 *
++	 * While ghostwrite may not affect all c9xx cores that implement
++	 * xtheadvector, there is no futher granularity than c9xx. Assume
++	 * vulnerable for this entire class of processors when xtheadvector is
++	 * enabled.
++	 */
++	if (arch_id != 0 || impid != 0)
++		return false;
++
++	if (stage != RISCV_ALTERNATIVES_EARLY_BOOT)
++		return false;
++
++	ghostwrite_set_vulnerable();
++
++	return true;
++}
++
+ static u32 thead_errata_probe(unsigned int stage,
+ 			      unsigned long archid, unsigned long impid)
+ {
+@@ -155,6 +181,8 @@
+ 	if (errata_probe_pmu(stage, archid, impid))
+ 		cpu_req_errata |= BIT(ERRATA_THEAD_PMU);
+ 
++	errata_probe_ghostwrite(stage, archid, impid);
++
+ 	return cpu_req_errata;
+ }
+ 
+diff -uNr linux-6.12.1/arch/riscv/include/asm/bugs.h linux/arch/riscv/include/asm/bugs.h
+--- linux-6.12.1/arch/riscv/include/asm/bugs.h	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/include/asm/bugs.h	2024-11-29 08:52:42.462784086 +0000
+@@ -0,0 +1,22 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/*
++ * Interface for managing mitigations for riscv vulnerabilities.
++ *
++ * Copyright (C) 2024 Rivos Inc.
++ */
++
++#ifndef __ASM_BUGS_H
++#define __ASM_BUGS_H
++
++/* Watch out, ordering is important here. */
++enum mitigation_state {
++	UNAFFECTED,
++	MITIGATED,
++	VULNERABLE,
++};
++
++void ghostwrite_set_vulnerable(void);
++bool ghostwrite_enable_mitigation(void);
++enum mitigation_state ghostwrite_get_state(void);
++
++#endif /* __ASM_BUGS_H */
+diff -uNr linux-6.12.1/arch/riscv/include/asm/cpufeature.h linux/arch/riscv/include/asm/cpufeature.h
+--- linux-6.12.1/arch/riscv/include/asm/cpufeature.h	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/include/asm/cpufeature.h	2024-11-29 08:53:32.541602182 +0000
+@@ -31,4 +31,6 @@
+ /* Per-cpu ISA extensions. */
+ extern struct riscv_isainfo hart_isa[NR_CPUS];
+ 
++extern u32 thead_vlenb_of;
++
+ void __init riscv_user_isa_enable(void);
+diff -uNr linux-6.12.1/arch/riscv/include/asm/csr.h linux/arch/riscv/include/asm/csr.h
+--- linux-6.12.1/arch/riscv/include/asm/csr.h	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/include/asm/csr.h	2024-11-29 08:52:42.452783655 +0000
+@@ -30,6 +30,12 @@
+ #define SR_VS_CLEAN	_AC(0x00000400, UL)
+ #define SR_VS_DIRTY	_AC(0x00000600, UL)
+ 
++#define SR_VS_THEAD		_AC(0x01800000, UL) /* xtheadvector Status */
++#define SR_VS_OFF_THEAD		_AC(0x00000000, UL)
++#define SR_VS_INITIAL_THEAD	_AC(0x00800000, UL)
++#define SR_VS_CLEAN_THEAD	_AC(0x01000000, UL)
++#define SR_VS_DIRTY_THEAD	_AC(0x01800000, UL)
++
+ #define SR_XS		_AC(0x00018000, UL) /* Extension Status */
+ #define SR_XS_OFF	_AC(0x00000000, UL)
+ #define SR_XS_INITIAL	_AC(0x00008000, UL)
+@@ -315,6 +321,15 @@
+ #define CSR_STIMECMP		0x14D
+ #define CSR_STIMECMPH		0x15D
+ 
++/* xtheadvector symbolic CSR names */
++#define CSR_VXSAT		0x9
++#define CSR_VXRM		0xa
++
++/* xtheadvector CSR masks */
++#define CSR_VXRM_MASK		3
++#define CSR_VXRM_SHIFT		1
++#define CSR_VXSAT_MASK		1
++
+ /* Supervisor-Level Window to Indirectly Accessed Registers (AIA) */
+ #define CSR_SISELECT		0x150
+ #define CSR_SIREG		0x151
+diff -uNr linux-6.12.1/arch/riscv/include/asm/errata_list.h linux/arch/riscv/include/asm/errata_list.h
+--- linux-6.12.1/arch/riscv/include/asm/errata_list.h	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/include/asm/errata_list.h	2024-11-29 08:52:42.462784086 +0000
+@@ -25,7 +25,8 @@
+ #ifdef CONFIG_ERRATA_THEAD
+ #define	ERRATA_THEAD_MAE 0
+ #define	ERRATA_THEAD_PMU 1
+-#define	ERRATA_THEAD_NUMBER 2
++#define	ERRATA_THEAD_GHOSTWRITE 2
++#define	ERRATA_THEAD_NUMBER 3
+ #endif
+ 
+ #ifdef __ASSEMBLY__
+diff -uNr linux-6.12.1/arch/riscv/include/asm/hwprobe.h linux/arch/riscv/include/asm/hwprobe.h
+--- linux-6.12.1/arch/riscv/include/asm/hwprobe.h	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/include/asm/hwprobe.h	2024-11-29 08:52:42.456117132 +0000
+@@ -1,6 +1,6 @@
+ /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+ /*
+- * Copyright 2023 Rivos, Inc
++ * Copyright 2023-2024 Rivos, Inc
+  */
+ 
+ #ifndef _ASM_HWPROBE_H
+@@ -21,6 +21,7 @@
+ 	case RISCV_HWPROBE_KEY_BASE_BEHAVIOR:
+ 	case RISCV_HWPROBE_KEY_IMA_EXT_0:
+ 	case RISCV_HWPROBE_KEY_CPUPERF_0:
++	case RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0:
+ 		return true;
+ 	}
+ 
+diff -uNr linux-6.12.1/arch/riscv/include/asm/switch_to.h linux/arch/riscv/include/asm/switch_to.h
+--- linux-6.12.1/arch/riscv/include/asm/switch_to.h	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/include/asm/switch_to.h	2024-11-29 08:52:42.452783655 +0000
+@@ -99,7 +99,7 @@
+ 	__set_prev_cpu(__prev->thread);			\
+ 	if (has_fpu())					\
+ 		__switch_to_fpu(__prev, __next);	\
+-	if (has_vector())					\
++	if (has_vector() || has_xtheadvector())		\
+ 		__switch_to_vector(__prev, __next);	\
+ 	if (switch_to_should_flush_icache(__next))	\
+ 		local_flush_icache_all();		\
+diff -uNr linux-6.12.1/arch/riscv/include/asm/vector.h linux/arch/riscv/include/asm/vector.h
+--- linux-6.12.1/arch/riscv/include/asm/vector.h	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/include/asm/vector.h	2024-11-29 08:55:01.822064592 +0000
+@@ -18,6 +18,27 @@
+ #include <asm/cpufeature.h>
+ #include <asm/csr.h>
+ #include <asm/asm.h>
++#include <asm/vendorid_list.h>
++#include <asm/vendor_extensions.h>
++#include <asm/vendor_extensions/thead.h>
++
++#define __riscv_v_vstate_or(_val, TYPE) ({				\
++	typeof(_val) _res = _val;					\
++	if (has_xtheadvector()) \
++		_res = (_res & ~SR_VS_THEAD) | SR_VS_##TYPE##_THEAD;	\
++	else								\
++		_res = (_res & ~SR_VS) | SR_VS_##TYPE;			\
++	_res;								\
++})
++
++#define __riscv_v_vstate_check(_val, TYPE) ({				\
++	bool _res;							\
++	if (has_xtheadvector()) \
++		_res = ((_val) & SR_VS_THEAD) == SR_VS_##TYPE##_THEAD;	\
++	else								\
++		_res = ((_val) & SR_VS) == SR_VS_##TYPE;		\
++	_res;								\
++})
+ 
+ extern unsigned long riscv_v_vsize;
+ int riscv_v_setup_vsize(void);
+@@ -40,39 +61,62 @@
+ 	return riscv_has_extension_unlikely(RISCV_ISA_EXT_ZVE32X);
+ }
+ 
++static __always_inline bool has_xtheadvector_no_alternatives(void)
++{
++	if (IS_ENABLED(CONFIG_RISCV_ISA_XTHEADVECTOR))
++		return riscv_isa_vendor_extension_available(THEAD_VENDOR_ID, XTHEADVECTOR);
++	else
++		return false;
++}
++
++static __always_inline bool has_xtheadvector(void)
++{
++	if (IS_ENABLED(CONFIG_RISCV_ISA_XTHEADVECTOR))
++		return riscv_has_vendor_extension_unlikely(THEAD_VENDOR_ID,
++							   RISCV_ISA_VENDOR_EXT_XTHEADVECTOR);
++	else
++		return false;
++}
++
+ static inline void __riscv_v_vstate_clean(struct pt_regs *regs)
+ {
+-	regs->status = (regs->status & ~SR_VS) | SR_VS_CLEAN;
++	regs->status = __riscv_v_vstate_or(regs->status, CLEAN);
+ }
+ 
+ static inline void __riscv_v_vstate_dirty(struct pt_regs *regs)
+ {
+-	regs->status = (regs->status & ~SR_VS) | SR_VS_DIRTY;
++	regs->status = __riscv_v_vstate_or(regs->status, DIRTY);
+ }
+ 
+ static inline void riscv_v_vstate_off(struct pt_regs *regs)
+ {
+-	regs->status = (regs->status & ~SR_VS) | SR_VS_OFF;
++	regs->status = __riscv_v_vstate_or(regs->status, OFF);
+ }
+ 
+ static inline void riscv_v_vstate_on(struct pt_regs *regs)
+ {
+-	regs->status = (regs->status & ~SR_VS) | SR_VS_INITIAL;
++	regs->status = __riscv_v_vstate_or(regs->status, INITIAL);
+ }
+ 
+ static inline bool riscv_v_vstate_query(struct pt_regs *regs)
+ {
+-	return (regs->status & SR_VS) != 0;
++	return !__riscv_v_vstate_check(regs->status, OFF);
+ }
+ 
+ static __always_inline void riscv_v_enable(void)
+ {
+-	csr_set(CSR_SSTATUS, SR_VS);
++	if (has_xtheadvector())
++		csr_set(CSR_SSTATUS, SR_VS_THEAD);
++	else
++		csr_set(CSR_SSTATUS, SR_VS);
+ }
+ 
+ static __always_inline void riscv_v_disable(void)
+ {
+-	csr_clear(CSR_SSTATUS, SR_VS);
++	if (has_xtheadvector())
++		csr_clear(CSR_SSTATUS, SR_VS_THEAD);
++	else
++		csr_clear(CSR_SSTATUS, SR_VS);
+ }
+ 
+ static __always_inline void __vstate_csr_save(struct __riscv_v_ext_state *dest)
+@@ -81,10 +125,36 @@
+ 		"csrr	%0, " __stringify(CSR_VSTART) "\n\t"
+ 		"csrr	%1, " __stringify(CSR_VTYPE) "\n\t"
+ 		"csrr	%2, " __stringify(CSR_VL) "\n\t"
+-		"csrr	%3, " __stringify(CSR_VCSR) "\n\t"
+-		"csrr	%4, " __stringify(CSR_VLENB) "\n\t"
+ 		: "=r" (dest->vstart), "=r" (dest->vtype), "=r" (dest->vl),
+-		  "=r" (dest->vcsr), "=r" (dest->vlenb) : :);
++		"=r" (dest->vcsr) : :);
++
++	if (has_xtheadvector()) {
++		unsigned long status;
++
++		/*
++		 * CSR_VCSR is defined as
++		 * [2:1] - vxrm[1:0]
++		 * [0] - vxsat
++		 * The earlier vector spec implemented by T-Head uses separate
++		 * registers for the same bit-elements, so just combine those
++		 * into the existing output field.
++		 *
++		 * Additionally T-Head cores need FS to be enabled when accessing
++		 * the VXRM and VXSAT CSRs, otherwise ending in illegal instructions.
++		 * Though the cores do not implement the VXRM and VXSAT fields in the
++		 * FCSR CSR that vector-0.7.1 specifies.
++		 */
++		status = csr_read_set(CSR_STATUS, SR_FS_DIRTY);
++		dest->vcsr = csr_read(CSR_VXSAT) | csr_read(CSR_VXRM) << CSR_VXRM_SHIFT;
++
++		dest->vlenb = riscv_v_vsize / 32;
++
++		if ((status & SR_FS) != SR_FS_DIRTY)
++			csr_write(CSR_STATUS, status);
++	} else {
++		dest->vcsr = csr_read(CSR_VCSR);
++		dest->vlenb = csr_read(CSR_VLENB);
++	}
+ }
+ 
+ static __always_inline void __vstate_csr_restore(struct __riscv_v_ext_state *src)
+@@ -95,9 +165,25 @@
+ 		"vsetvl	 x0, %2, %1\n\t"
+ 		".option pop\n\t"
+ 		"csrw	" __stringify(CSR_VSTART) ", %0\n\t"
+-		"csrw	" __stringify(CSR_VCSR) ", %3\n\t"
+-		: : "r" (src->vstart), "r" (src->vtype), "r" (src->vl),
+-		    "r" (src->vcsr) :);
++		: : "r" (src->vstart), "r" (src->vtype), "r" (src->vl));
++
++	if (has_xtheadvector()) {
++		unsigned long status = csr_read(CSR_SSTATUS);
++
++		/*
++		 * Similar to __vstate_csr_save above, restore values for the
++		 * separate VXRM and VXSAT CSRs from the vcsr variable.
++		 */
++		status = csr_read_set(CSR_STATUS, SR_FS_DIRTY);
++
++		csr_write(CSR_VXRM, (src->vcsr >> CSR_VXRM_SHIFT) & CSR_VXRM_MASK);
++		csr_write(CSR_VXSAT, src->vcsr & CSR_VXSAT_MASK);
++
++		if ((status & SR_FS) != SR_FS_DIRTY)
++			csr_write(CSR_STATUS, status);
++	} else {
++		csr_write(CSR_VCSR, src->vcsr);
++	}
+ }
+ 
+ static inline void __riscv_v_vstate_save(struct __riscv_v_ext_state *save_to,
+@@ -107,19 +193,33 @@
+ 
+ 	riscv_v_enable();
+ 	__vstate_csr_save(save_to);
+-	asm volatile (
+-		".option push\n\t"
+-		".option arch, +zve32x\n\t"
+-		"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
+-		"vse8.v		v0, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v8, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v16, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vse8.v		v24, (%1)\n\t"
+-		".option pop\n\t"
+-		: "=&r" (vl) : "r" (datap) : "memory");
++	if (has_xtheadvector()) {
++		asm volatile (
++			"mv t0, %0\n\t"
++			THEAD_VSETVLI_T4X0E8M8D1
++			THEAD_VSB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VSB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VSB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VSB_V_V0T0
++			: : "r" (datap) : "memory", "t0", "t4");
++	} else {
++		asm volatile (
++			".option push\n\t"
++			".option arch, +zve32x\n\t"
++			"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
++			"vse8.v		v0, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vse8.v		v8, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vse8.v		v16, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vse8.v		v24, (%1)\n\t"
++			".option pop\n\t"
++			: "=&r" (vl) : "r" (datap) : "memory");
++	}
+ 	riscv_v_disable();
+ }
+ 
+@@ -129,19 +229,33 @@
+ 	unsigned long vl;
+ 
+ 	riscv_v_enable();
+-	asm volatile (
+-		".option push\n\t"
+-		".option arch, +zve32x\n\t"
+-		"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
+-		"vle8.v		v0, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vle8.v		v8, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vle8.v		v16, (%1)\n\t"
+-		"add		%1, %1, %0\n\t"
+-		"vle8.v		v24, (%1)\n\t"
+-		".option pop\n\t"
+-		: "=&r" (vl) : "r" (datap) : "memory");
++	if (has_xtheadvector()) {
++		asm volatile (
++			"mv t0, %0\n\t"
++			THEAD_VSETVLI_T4X0E8M8D1
++			THEAD_VLB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VLB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VLB_V_V0T0
++			"add		t0, t0, t4\n\t"
++			THEAD_VLB_V_V0T0
++			: : "r" (datap) : "memory", "t0", "t4");
++	} else {
++		asm volatile (
++			".option push\n\t"
++			".option arch, +zve32x\n\t"
++			"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
++			"vle8.v		v0, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vle8.v		v8, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vle8.v		v16, (%1)\n\t"
++			"add		%1, %1, %0\n\t"
++			"vle8.v		v24, (%1)\n\t"
++			".option pop\n\t"
++			: "=&r" (vl) : "r" (datap) : "memory");
++	}
+ 	__vstate_csr_restore(restore_from);
+ 	riscv_v_disable();
+ }
+@@ -151,33 +265,41 @@
+ 	unsigned long vl, vtype_inval = 1UL << (BITS_PER_LONG - 1);
+ 
+ 	riscv_v_enable();
++	if (has_xtheadvector())
++		asm volatile (THEAD_VSETVLI_T4X0E8M8D1 : : : "t4");
++	else
++		asm volatile (
++			".option push\n\t"
++			".option arch, +zve32x\n\t"
++			"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
++			".option pop\n\t": "=&r" (vl));
++
+ 	asm volatile (
+ 		".option push\n\t"
+ 		".option arch, +zve32x\n\t"
+-		"vsetvli	%0, x0, e8, m8, ta, ma\n\t"
+ 		"vmv.v.i	v0, -1\n\t"
+ 		"vmv.v.i	v8, -1\n\t"
+ 		"vmv.v.i	v16, -1\n\t"
+ 		"vmv.v.i	v24, -1\n\t"
+ 		"vsetvl		%0, x0, %1\n\t"
+ 		".option pop\n\t"
+-		: "=&r" (vl) : "r" (vtype_inval) : "memory");
++		: "=&r" (vl) : "r" (vtype_inval));
++
+ 	riscv_v_disable();
+ }
+ 
+ static inline void riscv_v_vstate_discard(struct pt_regs *regs)
+ {
+-	if ((regs->status & SR_VS) == SR_VS_OFF)
+-		return;
+-
+-	__riscv_v_vstate_discard();
+-	__riscv_v_vstate_dirty(regs);
++	if (riscv_v_vstate_query(regs)) {
++		__riscv_v_vstate_discard();
++		__riscv_v_vstate_dirty(regs);
++	}
+ }
+ 
+ static inline void riscv_v_vstate_save(struct __riscv_v_ext_state *vstate,
+ 				       struct pt_regs *regs)
+ {
+-	if ((regs->status & SR_VS) == SR_VS_DIRTY) {
++	if (__riscv_v_vstate_check(regs->status, DIRTY)) {
+ 		__riscv_v_vstate_save(vstate, vstate->datap);
+ 		__riscv_v_vstate_clean(regs);
+ 	}
+@@ -186,7 +308,7 @@
+ static inline void riscv_v_vstate_restore(struct __riscv_v_ext_state *vstate,
+ 					  struct pt_regs *regs)
+ {
+-	if ((regs->status & SR_VS) != SR_VS_OFF) {
++	if (riscv_v_vstate_query(regs)) {
+ 		__riscv_v_vstate_restore(vstate, vstate->datap);
+ 		__riscv_v_vstate_clean(regs);
+ 	}
+@@ -195,7 +317,7 @@
+ static inline void riscv_v_vstate_set_restore(struct task_struct *task,
+ 					      struct pt_regs *regs)
+ {
+-	if ((regs->status & SR_VS) != SR_VS_OFF) {
++	if (riscv_v_vstate_query(regs)) {
+ 		set_tsk_thread_flag(task, TIF_RISCV_V_DEFER_RESTORE);
+ 		riscv_v_vstate_on(regs);
+ 	}
+@@ -268,6 +390,8 @@
+ 
+ static inline int riscv_v_setup_vsize(void) { return -EOPNOTSUPP; }
+ static __always_inline bool has_vector(void) { return false; }
++static __always_inline bool has_xtheadvector_no_alternatives(void) { return false; }
++static __always_inline bool has_xtheadvector(void) { return false; }
+ static __always_inline bool insn_is_vector(u32 insn_buf) { return false; }
+ static inline bool riscv_v_first_use_handler(struct pt_regs *regs) { return false; }
+ static inline bool riscv_v_vstate_query(struct pt_regs *regs) { return false; }
+diff -uNr linux-6.12.1/arch/riscv/include/asm/vendor_extensions/thead.h linux/arch/riscv/include/asm/vendor_extensions/thead.h
+--- linux-6.12.1/arch/riscv/include/asm/vendor_extensions/thead.h	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/include/asm/vendor_extensions/thead.h	2024-11-29 08:52:42.452783655 +0000
+@@ -0,0 +1,47 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_H
++#define _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_H
++
++#include <asm/vendor_extensions.h>
++
++#include <linux/types.h>
++
++/*
++ * Extension keys must be strictly less than RISCV_ISA_VENDOR_EXT_MAX.
++ */
++#define RISCV_ISA_VENDOR_EXT_XTHEADVECTOR		0
++
++extern struct riscv_isa_vendor_ext_data_list riscv_isa_vendor_ext_list_thead;
++
++#ifdef CONFIG_RISCV_ISA_VENDOR_EXT_THEAD
++void disable_xtheadvector(void);
++#else
++static inline void disable_xtheadvector(void) { }
++#endif
++
++/* Extension specific helpers */
++
++/*
++ * Vector 0.7.1 as used for example on T-Head Xuantie cores, uses an older
++ * encoding for vsetvli (ta, ma vs. d1), so provide an instruction for
++ * vsetvli	t4, x0, e8, m8, d1
++ */
++#define THEAD_VSETVLI_T4X0E8M8D1	".long	0x00307ed7\n\t"
++
++/*
++ * While in theory, the vector-0.7.1 vsb.v and vlb.v result in the same
++ * encoding as the standard vse8.v and vle8.v, compilers seem to optimize
++ * the call resulting in a different encoding and then using a value for
++ * the "mop" field that is not part of vector-0.7.1
++ * So encode specific variants for vstate_save and _restore.
++ */
++#define THEAD_VSB_V_V0T0		".long	0x02028027\n\t"
++#define THEAD_VSB_V_V8T0		".long	0x02028427\n\t"
++#define THEAD_VSB_V_V16T0		".long	0x02028827\n\t"
++#define THEAD_VSB_V_V24T0		".long	0x02028c27\n\t"
++#define THEAD_VLB_V_V0T0		".long	0x012028007\n\t"
++#define THEAD_VLB_V_V8T0		".long	0x012028407\n\t"
++#define THEAD_VLB_V_V16T0		".long	0x012028807\n\t"
++#define THEAD_VLB_V_V24T0		".long	0x012028c07\n\t"
++
++#endif
+diff -uNr linux-6.12.1/arch/riscv/include/asm/vendor_extensions/thead_hwprobe.h linux/arch/riscv/include/asm/vendor_extensions/thead_hwprobe.h
+--- linux-6.12.1/arch/riscv/include/asm/vendor_extensions/thead_hwprobe.h	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/include/asm/vendor_extensions/thead_hwprobe.h	2024-11-29 08:52:42.456117132 +0000
+@@ -0,0 +1,19 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_HWPROBE_H
++#define _ASM_RISCV_VENDOR_EXTENSIONS_THEAD_HWPROBE_H
++
++#include <linux/cpumask.h>
++
++#include <uapi/asm/hwprobe.h>
++
++#ifdef CONFIG_RISCV_ISA_VENDOR_EXT_THEAD
++void hwprobe_isa_vendor_ext_thead_0(struct riscv_hwprobe *pair, const struct cpumask *cpus);
++#else
++static inline void hwprobe_isa_vendor_ext_thead_0(struct riscv_hwprobe *pair,
++						  const struct cpumask *cpus)
++{
++	pair->value = 0;
++}
++#endif
++
++#endif
+diff -uNr linux-6.12.1/arch/riscv/include/asm/vendor_extensions/vendor_hwprobe.h linux/arch/riscv/include/asm/vendor_extensions/vendor_hwprobe.h
+--- linux-6.12.1/arch/riscv/include/asm/vendor_extensions/vendor_hwprobe.h	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/include/asm/vendor_extensions/vendor_hwprobe.h	2024-11-29 08:52:42.456117132 +0000
+@@ -0,0 +1,37 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * Copyright 2024 Rivos, Inc
++ */
++
++#ifndef _ASM_RISCV_SYS_HWPROBE_H
++#define _ASM_RISCV_SYS_HWPROBE_H
++
++#include <asm/cpufeature.h>
++
++#define VENDOR_EXT_KEY(ext)								\
++	do {										\
++		if (__riscv_isa_extension_available(isainfo->isa, RISCV_ISA_VENDOR_EXT_##ext)) \
++			pair->value |= RISCV_HWPROBE_VENDOR_EXT_##ext;			\
++		else									\
++			missing |= RISCV_HWPROBE_VENDOR_EXT_##ext;			\
++	} while (false)
++
++/*
++ * Loop through and record extensions that 1) anyone has, and 2) anyone
++ * doesn't have.
++ *
++ * _extension_checks is an arbitrary C block to set the values of pair->value
++ * and missing. It should be filled with VENDOR_EXT_KEY expressions.
++ */
++#define VENDOR_EXTENSION_SUPPORTED(pair, cpus, per_hart_vendor_bitmap, _extension_checks)	\
++	do {											\
++		int cpu;									\
++		u64 missing = 0;								\
++		for_each_cpu(cpu, (cpus)) {							\
++			struct riscv_isavendorinfo *isainfo = &(per_hart_vendor_bitmap)[cpu];	\
++			_extension_checks							\
++		}										\
++		(pair)->value &= ~missing;							\
++	} while (false)										\
++
++#endif /* _ASM_RISCV_SYS_HWPROBE_H */
+diff -uNr linux-6.12.1/arch/riscv/include/uapi/asm/hwprobe.h linux/arch/riscv/include/uapi/asm/hwprobe.h
+--- linux-6.12.1/arch/riscv/include/uapi/asm/hwprobe.h	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/include/uapi/asm/hwprobe.h	2024-11-29 08:56:17.431911077 +0000
+@@ -1,6 +1,6 @@
+ /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+ /*
+- * Copyright 2023 Rivos, Inc
++ * Copyright 2023-2024 Rivos, Inc
+  */
+ 
+ #ifndef _UAPI_ASM_HWPROBE_H
+@@ -88,6 +88,7 @@
+ #define		RISCV_HWPROBE_MISALIGNED_SCALAR_FAST		3
+ #define		RISCV_HWPROBE_MISALIGNED_SCALAR_UNSUPPORTED	4
+ #define RISCV_HWPROBE_KEY_MISALIGNED_VECTOR_PERF	10
++#define RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0   11
+ #define		RISCV_HWPROBE_MISALIGNED_VECTOR_UNKNOWN		0
+ #define		RISCV_HWPROBE_MISALIGNED_VECTOR_SLOW		2
+ #define		RISCV_HWPROBE_MISALIGNED_VECTOR_FAST		3
+diff -uNr linux-6.12.1/arch/riscv/include/uapi/asm/vendor/thead.h linux/arch/riscv/include/uapi/asm/vendor/thead.h
+--- linux-6.12.1/arch/riscv/include/uapi/asm/vendor/thead.h	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/include/uapi/asm/vendor/thead.h	2024-11-29 08:52:42.456117132 +0000
+@@ -0,0 +1,3 @@
++/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
++
++#define		RISCV_HWPROBE_VENDOR_EXT_XTHEADVECTOR	(1 << 0)
+diff -uNr linux-6.12.1/arch/riscv/Kconfig.errata linux/arch/riscv/Kconfig.errata
+--- linux-6.12.1/arch/riscv/Kconfig.errata	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/Kconfig.errata	2024-11-29 08:52:42.462784086 +0000
+@@ -119,4 +119,15 @@
+ 
+ 	  If you don't know what to do here, say "Y".
+ 
++config ERRATA_THEAD_GHOSTWRITE
++	bool "Apply T-Head Ghostwrite errata"
++	depends on ERRATA_THEAD && RISCV_ISA_XTHEADVECTOR
++	default y
++	help
++	  The T-Head C9xx cores have a vulnerability in the xtheadvector
++	  instruction set. When this errata is enabled, the CPUs will be probed
++	  to determine if they are vulnerable and disable xtheadvector.
++
++	  If you don't know what to do here, say "Y".
++
+ endmenu # "CPU errata selection"
+diff -uNr linux-6.12.1/arch/riscv/Kconfig.vendor linux/arch/riscv/Kconfig.vendor
+--- linux-6.12.1/arch/riscv/Kconfig.vendor	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/Kconfig.vendor	2024-11-29 08:52:42.449450178 +0000
+@@ -16,4 +16,30 @@
+ 	  If you don't know what to do here, say Y.
+ endmenu
+ 
++menu "T-Head"
++config RISCV_ISA_VENDOR_EXT_THEAD
++	bool "T-Head vendor extension support"
++	select RISCV_ISA_VENDOR_EXT
++	default y
++	help
++	  Say N here to disable detection of and support for all T-Head vendor
++	  extensions. Without this option enabled, T-Head vendor extensions will
++	  not be detected at boot and their presence not reported to userspace.
++
++	  If you don't know what to do here, say Y.
++
++config RISCV_ISA_XTHEADVECTOR
++	bool "xtheadvector extension support"
++	depends on RISCV_ISA_VENDOR_EXT_THEAD
++	depends on RISCV_ISA_V
++	depends on FPU
++	default y
++	help
++	  Say N here if you want to disable all xtheadvector related procedures
++	  in the kernel. This will disable vector for any T-Head board that
++	  contains xtheadvector rather than the standard vector.
++
++	  If you don't know what to do here, say Y.
++endmenu
++
+ endmenu
+diff -uNr linux-6.12.1/arch/riscv/kernel/bugs.c linux/arch/riscv/kernel/bugs.c
+--- linux-6.12.1/arch/riscv/kernel/bugs.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/kernel/bugs.c	2024-11-29 08:52:42.466117564 +0000
+@@ -0,0 +1,60 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2024 Rivos Inc.
++ */
++
++#include <linux/cpu.h>
++#include <linux/device.h>
++#include <linux/sprintf.h>
++
++#include <asm/bugs.h>
++#include <asm/vendor_extensions/thead.h>
++
++static enum mitigation_state ghostwrite_state;
++
++void ghostwrite_set_vulnerable(void)
++{
++	ghostwrite_state = VULNERABLE;
++}
++
++/*
++ * Vendor extension alternatives will use the value set at the time of boot
++ * alternative patching, thus this must be called before boot alternatives are
++ * patched (and after extension probing) to be effective.
++ *
++ * Returns true if mitgated, false otherwise.
++ */
++bool ghostwrite_enable_mitigation(void)
++{
++	if (IS_ENABLED(CONFIG_RISCV_ISA_XTHEADVECTOR) &&
++	    ghostwrite_state == VULNERABLE && !cpu_mitigations_off()) {
++		disable_xtheadvector();
++		ghostwrite_state = MITIGATED;
++		return true;
++	}
++
++	return false;
++}
++
++enum mitigation_state ghostwrite_get_state(void)
++{
++	return ghostwrite_state;
++}
++
++ssize_t cpu_show_ghostwrite(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	if (IS_ENABLED(CONFIG_RISCV_ISA_XTHEADVECTOR)) {
++		switch (ghostwrite_state) {
++		case UNAFFECTED:
++			return sprintf(buf, "Not affected\n");
++		case MITIGATED:
++			return sprintf(buf, "Mitigation: xtheadvector disabled\n");
++		case VULNERABLE:
++			fallthrough;
++		default:
++			return sprintf(buf, "Vulnerable\n");
++		}
++	} else {
++		return sprintf(buf, "Not affected\n");
++	}
++}
+diff -uNr linux-6.12.1/arch/riscv/kernel/cpufeature.c linux/arch/riscv/kernel/cpufeature.c
+--- linux-6.12.1/arch/riscv/kernel/cpufeature.c	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/kernel/cpufeature.c	2024-11-29 08:52:42.466117564 +0000
+@@ -17,6 +17,7 @@
+ #include <linux/of.h>
+ #include <asm/acpi.h>
+ #include <asm/alternative.h>
++#include <asm/bugs.h>
+ #include <asm/cacheflush.h>
+ #include <asm/cpufeature.h>
+ #include <asm/hwcap.h>
+@@ -25,6 +26,7 @@
+ #include <asm/sbi.h>
+ #include <asm/vector.h>
+ #include <asm/vendor_extensions.h>
++#include <asm/vendor_extensions/thead.h>
+ 
+ #define NUM_ALPHA_EXTS ('z' - 'a' + 1)
+ 
+@@ -36,6 +38,8 @@
+ /* Per-cpu ISA extensions. */
+ struct riscv_isainfo hart_isa[NR_CPUS];
+ 
++u32 thead_vlenb_of;
++
+ /**
+  * riscv_isa_extension_base() - Get base extension word
+  *
+@@ -770,9 +774,50 @@
+ 	}
+ }
+ 
++static int has_thead_homogeneous_vlenb(void)
++{
++	int cpu;
++	u32 prev_vlenb = 0;
++	u32 vlenb;
++
++	/* Ignore thead,vlenb property if xtheavector is not enabled in the kernel */
++	if (!IS_ENABLED(CONFIG_RISCV_ISA_XTHEADVECTOR))
++		return 0;
++
++	for_each_possible_cpu(cpu) {
++		struct device_node *cpu_node;
++
++		cpu_node = of_cpu_device_node_get(cpu);
++		if (!cpu_node) {
++			pr_warn("Unable to find cpu node\n");
++			return -ENOENT;
++		}
++
++		if (of_property_read_u32(cpu_node, "thead,vlenb", &vlenb)) {
++			of_node_put(cpu_node);
++
++			if (prev_vlenb)
++				return -ENOENT;
++			continue;
++		}
++
++		if (prev_vlenb && vlenb != prev_vlenb) {
++			of_node_put(cpu_node);
++			return -ENOENT;
++		}
++
++		prev_vlenb = vlenb;
++		of_node_put(cpu_node);
++	}
++
++	thead_vlenb_of = vlenb;
++	return 0;
++}
++
+ static int __init riscv_fill_hwcap_from_ext_list(unsigned long *isa2hwcap)
+ {
+ 	unsigned int cpu;
++	bool mitigated;
+ 
+ 	for_each_possible_cpu(cpu) {
+ 		unsigned long this_hwcap = 0;
+@@ -823,6 +868,17 @@
+ 		riscv_fill_vendor_ext_list(cpu);
+ 	}
+ 
++	/*
++	 * Execute ghostwrite mitigation immediately after detecting extensions
++	 * to disable xtheadvector if necessary.
++	 */
++	mitigated = ghostwrite_enable_mitigation();
++
++	if (!mitigated && has_xtheadvector_no_alternatives() && has_thead_homogeneous_vlenb() < 0) {
++		pr_warn("Unsupported heterogeneous vlenb detected, vector extension disabled.\n");
++		disable_xtheadvector();
++	}
++
+ 	if (bitmap_empty(riscv_isa, RISCV_ISA_EXT_MAX))
+ 		return -ENOENT;
+ 
+@@ -875,7 +931,8 @@
+ 		elf_hwcap &= ~COMPAT_HWCAP_ISA_F;
+ 	}
+ 
+-	if (__riscv_isa_extension_available(NULL, RISCV_ISA_EXT_ZVE32X)) {
++	if (__riscv_isa_extension_available(NULL, RISCV_ISA_EXT_ZVE32X) ||
++	    has_xtheadvector_no_alternatives()) {
+ 		/*
+ 		 * This cannot fail when called on the boot hart
+ 		 */
+diff -uNr linux-6.12.1/arch/riscv/kernel/kernel_mode_vector.c linux/arch/riscv/kernel/kernel_mode_vector.c
+--- linux-6.12.1/arch/riscv/kernel/kernel_mode_vector.c	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/kernel/kernel_mode_vector.c	2024-11-29 08:52:42.456117132 +0000
+@@ -143,7 +143,7 @@
+ 
+ 	/* Transfer the ownership of V from user to kernel, then save */
+ 	riscv_v_start(RISCV_PREEMPT_V | RISCV_PREEMPT_V_DIRTY);
+-	if ((task_pt_regs(current)->status & SR_VS) == SR_VS_DIRTY) {
++	if (__riscv_v_vstate_check(task_pt_regs(current)->status, DIRTY)) {
+ 		uvstate = &current->thread.vstate;
+ 		__riscv_v_vstate_save(uvstate, uvstate->datap);
+ 	}
+@@ -160,7 +160,7 @@
+ 		return;
+ 
+ 	depth = riscv_v_ctx_get_depth();
+-	if (depth == 0 && (regs->status & SR_VS) == SR_VS_DIRTY)
++	if (depth == 0 && __riscv_v_vstate_check(regs->status, DIRTY))
+ 		riscv_preempt_v_set_dirty();
+ 
+ 	riscv_v_ctx_depth_inc();
+@@ -208,7 +208,7 @@
+ {
+ 	bool nested = false;
+ 
+-	if (WARN_ON(!has_vector()))
++	if (WARN_ON(!(has_vector() || has_xtheadvector())))
+ 		return;
+ 
+ 	BUG_ON(!may_use_simd());
+@@ -236,7 +236,7 @@
+  */
+ void kernel_vector_end(void)
+ {
+-	if (WARN_ON(!has_vector()))
++	if (WARN_ON(!(has_vector() || has_xtheadvector())))
+ 		return;
+ 
+ 	riscv_v_disable();
+diff -uNr linux-6.12.1/arch/riscv/kernel/Makefile linux/arch/riscv/kernel/Makefile
+--- linux-6.12.1/arch/riscv/kernel/Makefile	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/kernel/Makefile	2024-11-29 08:52:42.466117564 +0000
+@@ -122,3 +122,5 @@
+ obj-$(CONFIG_64BIT)		+= pi/
+ obj-$(CONFIG_ACPI)		+= acpi.o
+ obj-$(CONFIG_ACPI_NUMA)	+= acpi_numa.o
++
++obj-$(CONFIG_GENERIC_CPU_VULNERABILITIES) += bugs.o
+diff -uNr linux-6.12.1/arch/riscv/kernel/process.c linux/arch/riscv/kernel/process.c
+--- linux-6.12.1/arch/riscv/kernel/process.c	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/kernel/process.c	2024-11-29 08:52:42.456117132 +0000
+@@ -185,7 +185,7 @@
+ void arch_release_task_struct(struct task_struct *tsk)
+ {
+ 	/* Free the vector context of datap. */
+-	if (has_vector())
++	if (has_vector() || has_xtheadvector())
+ 		riscv_v_thread_free(tsk);
+ }
+ 
+@@ -231,7 +231,7 @@
+ 		p->thread.s[0] = 0;
+ 	}
+ 	p->thread.riscv_v_flags = 0;
+-	if (has_vector())
++	if (has_vector() || has_xtheadvector())
+ 		riscv_v_thread_alloc(p);
+ 	p->thread.ra = (unsigned long)ret_from_fork;
+ 	p->thread.sp = (unsigned long)childregs; /* kernel sp */
+diff -uNr linux-6.12.1/arch/riscv/kernel/signal.c linux/arch/riscv/kernel/signal.c
+--- linux-6.12.1/arch/riscv/kernel/signal.c	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/kernel/signal.c	2024-11-29 08:52:42.456117132 +0000
+@@ -189,7 +189,7 @@
+ 
+ 			return 0;
+ 		case RISCV_V_MAGIC:
+-			if (!has_vector() || !riscv_v_vstate_query(regs) ||
++			if (!(has_vector() || has_xtheadvector()) || !riscv_v_vstate_query(regs) ||
+ 			    size != riscv_v_sc_size)
+ 				return -EINVAL;
+ 
+@@ -211,7 +211,7 @@
+ 
+ 	frame_size = sizeof(*frame);
+ 
+-	if (has_vector()) {
++	if (has_vector() || has_xtheadvector()) {
+ 		if (cal_all || riscv_v_vstate_query(task_pt_regs(current)))
+ 			total_context_size += riscv_v_sc_size;
+ 	}
+@@ -284,7 +284,7 @@
+ 	if (has_fpu())
+ 		err |= save_fp_state(regs, &sc->sc_fpregs);
+ 	/* Save the vector state. */
+-	if (has_vector() && riscv_v_vstate_query(regs))
++	if ((has_vector() || has_xtheadvector()) && riscv_v_vstate_query(regs))
+ 		err |= save_v_state(regs, (void __user **)&sc_ext_ptr);
+ 	/* Write zero to fp-reserved space and check it on restore_sigcontext */
+ 	err |= __put_user(0, &sc->sc_extdesc.reserved);
+diff -uNr linux-6.12.1/arch/riscv/kernel/sys_hwprobe.c linux/arch/riscv/kernel/sys_hwprobe.c
+--- linux-6.12.1/arch/riscv/kernel/sys_hwprobe.c	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/kernel/sys_hwprobe.c	2024-11-29 08:52:42.459450610 +0000
+@@ -15,6 +15,7 @@
+ #include <asm/uaccess.h>
+ #include <asm/unistd.h>
+ #include <asm/vector.h>
++#include <asm/vendor_extensions/thead_hwprobe.h>
+ #include <vdso/vsyscall.h>
+ 
+ 
+@@ -242,6 +243,10 @@
+ 		pair->value = riscv_timebase;
+ 		break;
+ 
++	case RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0:
++		hwprobe_isa_vendor_ext_thead_0(pair, cpus);
++		break;
++
+ 	/*
+ 	 * For forward compatibility, unknown keys don't fail the whole
+ 	 * call, but get their element key set to -1 and value set to 0
+diff -uNr linux-6.12.1/arch/riscv/kernel/vector.c linux/arch/riscv/kernel/vector.c
+--- linux-6.12.1/arch/riscv/kernel/vector.c	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/kernel/vector.c	2024-11-29 08:52:42.456117132 +0000
+@@ -33,7 +33,17 @@
+ {
+ 	unsigned long this_vsize;
+ 
+-	/* There are 32 vector registers with vlenb length. */
++	/*
++	 * There are 32 vector registers with vlenb length.
++	 *
++	 * If the thead,vlenb property was provided by the firmware, use that
++	 * instead of probing the CSRs.
++	 */
++	if (thead_vlenb_of) {
++		riscv_v_vsize = thead_vlenb_of * 32;
++		return 0;
++	}
++
+ 	riscv_v_enable();
+ 	this_vsize = csr_read(CSR_VLENB) * 32;
+ 	riscv_v_disable();
+@@ -53,7 +63,7 @@
+ 
+ void __init riscv_v_setup_ctx_cache(void)
+ {
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return;
+ 
+ 	riscv_v_user_cachep = kmem_cache_create_usercopy("riscv_vector_ctx",
+@@ -173,7 +183,7 @@
+ 	u32 __user *epc = (u32 __user *)regs->epc;
+ 	u32 insn = (u32)regs->badaddr;
+ 
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return false;
+ 
+ 	/* Do not handle if V is not supported, or disabled */
+@@ -216,7 +226,7 @@
+ 	bool inherit;
+ 	int cur, next;
+ 
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return;
+ 
+ 	next = riscv_v_ctrl_get_next(tsk);
+@@ -238,7 +248,7 @@
+ 
+ long riscv_v_vstate_ctrl_get_current(void)
+ {
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return -EINVAL;
+ 
+ 	return current->thread.vstate_ctrl & PR_RISCV_V_VSTATE_CTRL_MASK;
+@@ -249,7 +259,7 @@
+ 	bool inherit;
+ 	int cur, next;
+ 
+-	if (!has_vector())
++	if (!(has_vector() || has_xtheadvector()))
+ 		return -EINVAL;
+ 
+ 	if (arg & ~PR_RISCV_V_VSTATE_CTRL_MASK)
+@@ -299,7 +309,7 @@
+ 
+ static int __init riscv_v_sysctl_init(void)
+ {
+-	if (has_vector())
++	if (has_vector() || has_xtheadvector())
+ 		if (!register_sysctl("abi", riscv_v_default_vstate_table))
+ 			return -EINVAL;
+ 	return 0;
+diff -uNr linux-6.12.1/arch/riscv/kernel/vendor_extensions/Makefile linux/arch/riscv/kernel/vendor_extensions/Makefile
+--- linux-6.12.1/arch/riscv/kernel/vendor_extensions/Makefile	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/kernel/vendor_extensions/Makefile	2024-11-29 08:52:42.459450610 +0000
+@@ -1,3 +1,5 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+ 
+ obj-$(CONFIG_RISCV_ISA_VENDOR_EXT_ANDES)	+= andes.o
++obj-$(CONFIG_RISCV_ISA_VENDOR_EXT_THEAD)	+= thead.o
++obj-$(CONFIG_RISCV_ISA_VENDOR_EXT_THEAD)	+= thead_hwprobe.o
+diff -uNr linux-6.12.1/arch/riscv/kernel/vendor_extensions/thead.c linux/arch/riscv/kernel/vendor_extensions/thead.c
+--- linux-6.12.1/arch/riscv/kernel/vendor_extensions/thead.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/kernel/vendor_extensions/thead.c	2024-11-29 08:52:42.449450178 +0000
+@@ -0,0 +1,29 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include <asm/cpufeature.h>
++#include <asm/vendor_extensions.h>
++#include <asm/vendor_extensions/thead.h>
++
++#include <linux/array_size.h>
++#include <linux/cpumask.h>
++#include <linux/types.h>
++
++/* All T-Head vendor extensions supported in Linux */
++static const struct riscv_isa_ext_data riscv_isa_vendor_ext_thead[] = {
++	__RISCV_ISA_EXT_DATA(xtheadvector, RISCV_ISA_VENDOR_EXT_XTHEADVECTOR),
++};
++
++struct riscv_isa_vendor_ext_data_list riscv_isa_vendor_ext_list_thead = {
++	.ext_data_count = ARRAY_SIZE(riscv_isa_vendor_ext_thead),
++	.ext_data = riscv_isa_vendor_ext_thead,
++};
++
++void disable_xtheadvector(void)
++{
++	int cpu;
++
++	for_each_possible_cpu(cpu)
++		clear_bit(RISCV_ISA_VENDOR_EXT_XTHEADVECTOR, riscv_isa_vendor_ext_list_thead.per_hart_isa_bitmap[cpu].isa);
++
++	clear_bit(RISCV_ISA_VENDOR_EXT_XTHEADVECTOR, riscv_isa_vendor_ext_list_thead.all_harts_isa_bitmap.isa);
++}
+diff -uNr linux-6.12.1/arch/riscv/kernel/vendor_extensions/thead_hwprobe.c linux/arch/riscv/kernel/vendor_extensions/thead_hwprobe.c
+--- linux-6.12.1/arch/riscv/kernel/vendor_extensions/thead_hwprobe.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/riscv/kernel/vendor_extensions/thead_hwprobe.c	2024-11-29 08:52:42.459450610 +0000
+@@ -0,0 +1,19 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include <asm/vendor_extensions/thead.h>
++#include <asm/vendor_extensions/thead_hwprobe.h>
++#include <asm/vendor_extensions/vendor_hwprobe.h>
++
++#include <linux/cpumask.h>
++#include <linux/types.h>
++
++#include <uapi/asm/hwprobe.h>
++#include <uapi/asm/vendor/thead.h>
++
++void hwprobe_isa_vendor_ext_thead_0(struct riscv_hwprobe *pair, const struct cpumask *cpus)
++{
++	VENDOR_EXTENSION_SUPPORTED(pair, cpus,
++				   riscv_isa_vendor_ext_list_thead.per_hart_isa_bitmap, {
++		VENDOR_EXT_KEY(XTHEADVECTOR);
++	});
++}
+diff -uNr linux-6.12.1/arch/riscv/kernel/vendor_extensions.c linux/arch/riscv/kernel/vendor_extensions.c
+--- linux-6.12.1/arch/riscv/kernel/vendor_extensions.c	2024-11-22 14:30:26.000000000 +0000
++++ linux/arch/riscv/kernel/vendor_extensions.c	2024-11-29 08:52:42.446116701 +0000
+@@ -6,6 +6,7 @@
+ #include <asm/vendorid_list.h>
+ #include <asm/vendor_extensions.h>
+ #include <asm/vendor_extensions/andes.h>
++#include <asm/vendor_extensions/thead.h>
+ 
+ #include <linux/array_size.h>
+ #include <linux/types.h>
+@@ -14,6 +15,9 @@
+ #ifdef CONFIG_RISCV_ISA_VENDOR_EXT_ANDES
+ 	&riscv_isa_vendor_ext_list_andes,
+ #endif
++#ifdef CONFIG_RISCV_ISA_VENDOR_EXT_THEAD
++	&riscv_isa_vendor_ext_list_thead,
++#endif
+ };
+ 
+ const size_t riscv_isa_vendor_ext_list_size = ARRAY_SIZE(riscv_isa_vendor_ext_list);
+@@ -41,6 +45,12 @@
+ 		cpu_bmap = riscv_isa_vendor_ext_list_andes.per_hart_isa_bitmap;
+ 		break;
+ 	#endif
++	#ifdef CONFIG_RISCV_ISA_VENDOR_EXT_THEAD
++	case THEAD_VENDOR_ID:
++		bmap = &riscv_isa_vendor_ext_list_thead.all_harts_isa_bitmap;
++		cpu_bmap = riscv_isa_vendor_ext_list_thead.per_hart_isa_bitmap;
++		break;
++	#endif
+ 	default:
+ 		return false;
+ 	}
+diff -uNr linux-6.12.1/Documentation/devicetree/bindings/riscv/cpus.yaml linux/Documentation/devicetree/bindings/riscv/cpus.yaml
+--- linux-6.12.1/Documentation/devicetree/bindings/riscv/cpus.yaml	2024-11-22 14:30:26.000000000 +0000
++++ linux/Documentation/devicetree/bindings/riscv/cpus.yaml	2024-11-29 08:52:42.446116701 +0000
+@@ -26,6 +26,18 @@
+ allOf:
+   - $ref: /schemas/cpu.yaml#
+   - $ref: extensions.yaml
++  - if:
++      not:
++        properties:
++          compatible:
++            contains:
++              enum:
++                - thead,c906
++                - thead,c910
++                - thead,c920
++    then:
++      properties:
++        thead,vlenb: false
+ 
+ properties:
+   compatible:
+@@ -95,6 +107,13 @@
+     description:
+       The blocksize in bytes for the Zicboz cache operations.
+ 
++  thead,vlenb:
++    $ref: /schemas/types.yaml#/definitions/uint32
++    description:
++      VLEN/8, the vector register length in bytes. This property is required on
++      thead systems where the vector register length is not identical on all harts, or
++      the vlenb CSR is not available.
++
+   # RISC-V has multiple properties for cache op block sizes as the sizes
+   # differ between individual CBO extensions
+   cache-op-block-size: false
+diff -uNr linux-6.12.1/Documentation/devicetree/bindings/riscv/extensions.yaml linux/Documentation/devicetree/bindings/riscv/extensions.yaml
+--- linux-6.12.1/Documentation/devicetree/bindings/riscv/extensions.yaml	2024-11-22 14:30:26.000000000 +0000
++++ linux/Documentation/devicetree/bindings/riscv/extensions.yaml	2024-11-29 08:52:42.446116701 +0000
+@@ -563,6 +563,10 @@
+             latency, as ratified in commit 56ed795 ("Update
+             riscv-crypto-spec-vector.adoc") of riscv-crypto.
+ 
++        # vendor extensions, each extension sorted alphanumerically under the
++        # vendor they belong to. Vendors are sorted alphanumerically as well.
++
++        # Andes
+         - const: xandespmu
+           description:
+             The Andes Technology performance monitor extension for counter overflow
+@@ -570,6 +574,12 @@
+             Registers in the AX45MP datasheet.
+             https://www.andestech.com/wp-content/uploads/AX45MP-1C-Rev.-5.0.0-Datasheet.pdf
+ 
++        # T-HEAD
++        - const: xtheadvector
++          description:
++            The T-HEAD specific 0.7.1 vector implementation as written in
++            https://github.com/T-head-Semi/thead-extension-spec/blob/95358cb2cca9489361c61d335e03d3134b14133f/xtheadvector.adoc.
++
+     allOf:
+       # Zcb depends on Zca
+       - if:
+diff -uNr linux-6.12.1/drivers/base/cpu.c linux/drivers/base/cpu.c
+--- linux-6.12.1/drivers/base/cpu.c	2024-11-22 14:30:26.000000000 +0000
++++ linux/drivers/base/cpu.c	2024-11-29 08:52:42.466117564 +0000
+@@ -599,6 +599,7 @@
+ CPU_SHOW_VULN_FALLBACK(spec_rstack_overflow);
+ CPU_SHOW_VULN_FALLBACK(gds);
+ CPU_SHOW_VULN_FALLBACK(reg_file_data_sampling);
++CPU_SHOW_VULN_FALLBACK(ghostwrite);
+ 
+ static DEVICE_ATTR(meltdown, 0444, cpu_show_meltdown, NULL);
+ static DEVICE_ATTR(spectre_v1, 0444, cpu_show_spectre_v1, NULL);
+@@ -614,6 +615,7 @@
+ static DEVICE_ATTR(spec_rstack_overflow, 0444, cpu_show_spec_rstack_overflow, NULL);
+ static DEVICE_ATTR(gather_data_sampling, 0444, cpu_show_gds, NULL);
+ static DEVICE_ATTR(reg_file_data_sampling, 0444, cpu_show_reg_file_data_sampling, NULL);
++static DEVICE_ATTR(ghostwrite, 0444, cpu_show_ghostwrite, NULL);
+ 
+ static struct attribute *cpu_root_vulnerabilities_attrs[] = {
+ 	&dev_attr_meltdown.attr,
+@@ -630,6 +632,7 @@
+ 	&dev_attr_spec_rstack_overflow.attr,
+ 	&dev_attr_gather_data_sampling.attr,
+ 	&dev_attr_reg_file_data_sampling.attr,
++	&dev_attr_ghostwrite.attr,
+ 	NULL
+ };
+ 
+diff -uNr linux-6.12.1/include/linux/cpu.h linux/include/linux/cpu.h
+--- linux-6.12.1/include/linux/cpu.h	2024-11-22 14:30:26.000000000 +0000
++++ linux/include/linux/cpu.h	2024-11-29 08:52:42.466117564 +0000
+@@ -77,6 +77,7 @@
+ 			    struct device_attribute *attr, char *buf);
+ extern ssize_t cpu_show_reg_file_data_sampling(struct device *dev,
+ 					       struct device_attribute *attr, char *buf);
++extern ssize_t cpu_show_ghostwrite(struct device *dev, struct device_attribute *attr, char *buf);
+ 
+ extern __printf(4, 5)
+ struct device *cpu_device_create(struct device *parent, void *drvdata,
+diff -uNr linux-6.12.1/tools/testing/selftests/riscv/vector/.gitignore linux/tools/testing/selftests/riscv/vector/.gitignore
+--- linux-6.12.1/tools/testing/selftests/riscv/vector/.gitignore	2024-11-22 14:30:26.000000000 +0000
++++ linux/tools/testing/selftests/riscv/vector/.gitignore	2024-11-29 08:52:42.459450610 +0000
+@@ -1,3 +1,4 @@
+ vstate_exec_nolibc
+ vstate_prctl
+-v_initval_nolibc
++v_initval
++v_exec_initval_nolibc
+diff -uNr linux-6.12.1/tools/testing/selftests/riscv/vector/Makefile linux/tools/testing/selftests/riscv/vector/Makefile
+--- linux-6.12.1/tools/testing/selftests/riscv/vector/Makefile	2024-11-22 14:30:26.000000000 +0000
++++ linux/tools/testing/selftests/riscv/vector/Makefile	2024-11-29 08:52:42.459450610 +0000
+@@ -2,18 +2,27 @@
+ # Copyright (C) 2021 ARM Limited
+ # Originally tools/testing/arm64/abi/Makefile
+ 
+-TEST_GEN_PROGS := vstate_prctl v_initval_nolibc
+-TEST_GEN_PROGS_EXTENDED := vstate_exec_nolibc
++TEST_GEN_PROGS := v_initval vstate_prctl
++TEST_GEN_PROGS_EXTENDED := vstate_exec_nolibc v_exec_initval_nolibc
+ 
+ include ../../lib.mk
+ 
+-$(OUTPUT)/vstate_prctl: vstate_prctl.c ../hwprobe/sys_hwprobe.S
++$(OUTPUT)/sys_hwprobe.o: ../hwprobe/sys_hwprobe.S
++	$(CC) -static -c -o$@ $(CFLAGS) $^
++
++$(OUTPUT)/v_helpers.o: v_helpers.c
++	$(CC) -static -c -o$@ $(CFLAGS) $^
++
++$(OUTPUT)/vstate_prctl: vstate_prctl.c $(OUTPUT)/sys_hwprobe.o $(OUTPUT)/v_helpers.o
+ 	$(CC) -static -o$@ $(CFLAGS) $(LDFLAGS) $^
+ 
+ $(OUTPUT)/vstate_exec_nolibc: vstate_exec_nolibc.c
+ 	$(CC) -nostdlib -static -include ../../../../include/nolibc/nolibc.h \
+ 		-Wall $(CFLAGS) $(LDFLAGS) $^ -o $@ -lgcc
+ 
+-$(OUTPUT)/v_initval_nolibc: v_initval_nolibc.c
++$(OUTPUT)/v_initval: v_initval.c $(OUTPUT)/sys_hwprobe.o $(OUTPUT)/v_helpers.o
++	$(CC) -static -o$@ $(CFLAGS) $(LDFLAGS) $^
++
++$(OUTPUT)/v_exec_initval_nolibc: v_exec_initval_nolibc.c
+ 	$(CC) -nostdlib -static -include ../../../../include/nolibc/nolibc.h \
+ 		-Wall $(CFLAGS) $(LDFLAGS) $^ -o $@ -lgcc
+diff -uNr linux-6.12.1/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c linux/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c
+--- linux-6.12.1/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/tools/testing/selftests/riscv/vector/v_exec_initval_nolibc.c	2024-11-29 08:52:42.462784086 +0000
+@@ -0,0 +1,94 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Get values of vector registers as soon as the program starts to test if
++ * is properly cleaning the values before starting a new program. Vector
++ * registers are caller saved, so no function calls may happen before reading
++ * the values. To further ensure consistency, this file is compiled without
++ * libc and without auto-vectorization.
++ *
++ * To be "clean" all values must be either all ones or all zeroes.
++ */
++
++#define __stringify_1(x...)	#x
++#define __stringify(x...)	__stringify_1(x)
++
++int main(int argc, char **argv)
++{
++	char prev_value = 0, value;
++	unsigned long vl;
++	int first = 1;
++
++	if (argc > 2 && strcmp(argv[2], "x"))
++		asm volatile (
++			// 0 | zimm[10:0] | rs1 | 1 1 1 | rd |1010111| vsetvli
++			// vsetvli	t4, x0, e8, m1, d1
++			".4byte		0b00000000000000000111111011010111\n\t"
++			"mv		%[vl], t4\n\t"
++			: [vl] "=r" (vl) : : "t4"
++		);
++	else
++		asm volatile (
++			".option push\n\t"
++			".option arch, +v\n\t"
++			"vsetvli	%[vl], x0, e8, m1, ta, ma\n\t"
++			".option pop\n\t"
++			: [vl] "=r" (vl)
++		);
++
++#define CHECK_VECTOR_REGISTER(register) ({					\
++	for (int i = 0; i < vl; i++) {						\
++		asm volatile (							\
++			".option push\n\t"					\
++			".option arch, +v\n\t"					\
++			"vmv.x.s %0, " __stringify(register) "\n\t"		\
++			"vsrl.vi " __stringify(register) ", " __stringify(register) ", 8\n\t" \
++			".option pop\n\t"					\
++			: "=r" (value));					\
++		if (first) {							\
++			first = 0;						\
++		} else if (value != prev_value || !(value == 0x00 || value == 0xff)) { \
++			printf("Register " __stringify(register)		\
++				" values not clean! value: %u\n", value);	\
++			exit(-1);						\
++		}								\
++		prev_value = value;						\
++	}									\
++})
++
++	CHECK_VECTOR_REGISTER(v0);
++	CHECK_VECTOR_REGISTER(v1);
++	CHECK_VECTOR_REGISTER(v2);
++	CHECK_VECTOR_REGISTER(v3);
++	CHECK_VECTOR_REGISTER(v4);
++	CHECK_VECTOR_REGISTER(v5);
++	CHECK_VECTOR_REGISTER(v6);
++	CHECK_VECTOR_REGISTER(v7);
++	CHECK_VECTOR_REGISTER(v8);
++	CHECK_VECTOR_REGISTER(v9);
++	CHECK_VECTOR_REGISTER(v10);
++	CHECK_VECTOR_REGISTER(v11);
++	CHECK_VECTOR_REGISTER(v12);
++	CHECK_VECTOR_REGISTER(v13);
++	CHECK_VECTOR_REGISTER(v14);
++	CHECK_VECTOR_REGISTER(v15);
++	CHECK_VECTOR_REGISTER(v16);
++	CHECK_VECTOR_REGISTER(v17);
++	CHECK_VECTOR_REGISTER(v18);
++	CHECK_VECTOR_REGISTER(v19);
++	CHECK_VECTOR_REGISTER(v20);
++	CHECK_VECTOR_REGISTER(v21);
++	CHECK_VECTOR_REGISTER(v22);
++	CHECK_VECTOR_REGISTER(v23);
++	CHECK_VECTOR_REGISTER(v24);
++	CHECK_VECTOR_REGISTER(v25);
++	CHECK_VECTOR_REGISTER(v26);
++	CHECK_VECTOR_REGISTER(v27);
++	CHECK_VECTOR_REGISTER(v28);
++	CHECK_VECTOR_REGISTER(v29);
++	CHECK_VECTOR_REGISTER(v30);
++	CHECK_VECTOR_REGISTER(v31);
++
++#undef CHECK_VECTOR_REGISTER
++
++	return 0;
++}
+diff -uNr linux-6.12.1/tools/testing/selftests/riscv/vector/v_helpers.c linux/tools/testing/selftests/riscv/vector/v_helpers.c
+--- linux-6.12.1/tools/testing/selftests/riscv/vector/v_helpers.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/tools/testing/selftests/riscv/vector/v_helpers.c	2024-11-29 08:52:42.462784086 +0000
+@@ -0,0 +1,68 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include "../hwprobe/hwprobe.h"
++#include <asm/vendor/thead.h>
++#include <stdbool.h>
++#include <stdlib.h>
++#include <stdio.h>
++#include <unistd.h>
++#include <sys/wait.h>
++
++bool is_xtheadvector_supported(void)
++{
++	struct riscv_hwprobe pair;
++
++	pair.key = RISCV_HWPROBE_KEY_VENDOR_EXT_THEAD_0;
++	riscv_hwprobe(&pair, 1, 0, NULL, 0);
++	return pair.value & RISCV_HWPROBE_VENDOR_EXT_XTHEADVECTOR;
++}
++
++bool is_vector_supported(void)
++{
++	struct riscv_hwprobe pair;
++
++	pair.key = RISCV_HWPROBE_KEY_IMA_EXT_0;
++	riscv_hwprobe(&pair, 1, 0, NULL, 0);
++	return pair.value & RISCV_HWPROBE_EXT_ZVE32X;
++}
++
++int launch_test(char *next_program, int test_inherit, int xtheadvector)
++{
++	char *exec_argv[4], *exec_envp[1];
++	int rc, pid, status;
++
++	pid = fork();
++	if (pid < 0) {
++		printf("fork failed %d", pid);
++		return -1;
++	}
++
++	if (!pid) {
++		exec_argv[0] = next_program;
++		exec_argv[1] = test_inherit != 0 ? "x" : NULL;
++		exec_argv[2] = xtheadvector != 0 ? "x" : NULL;
++		exec_argv[3] = NULL;
++		exec_envp[0] = NULL;
++		/* launch the program again to check inherit */
++		rc = execve(next_program, exec_argv, exec_envp);
++		if (rc) {
++			perror("execve");
++			printf("child execve failed %d\n", rc);
++			exit(-1);
++		}
++	}
++
++	rc = waitpid(-1, &status, 0);
++	if (rc < 0) {
++		printf("waitpid failed\n");
++		return -3;
++	}
++
++	if ((WIFEXITED(status) && WEXITSTATUS(status) == -1) ||
++	    WIFSIGNALED(status)) {
++		printf("child exited abnormally\n");
++		return -4;
++	}
++
++	return WEXITSTATUS(status);
++}
+diff -uNr linux-6.12.1/tools/testing/selftests/riscv/vector/v_helpers.h linux/tools/testing/selftests/riscv/vector/v_helpers.h
+--- linux-6.12.1/tools/testing/selftests/riscv/vector/v_helpers.h	1970-01-01 00:00:00.000000000 +0000
++++ linux/tools/testing/selftests/riscv/vector/v_helpers.h	2024-11-29 08:52:42.462784086 +0000
+@@ -0,0 +1,8 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#include <stdbool.h>
++
++bool is_xtheadvector_supported(void);
++
++bool is_vector_supported(void);
++
++int launch_test(char *next_program, int test_inherit, int xtheadvector);
+diff -uNr linux-6.12.1/tools/testing/selftests/riscv/vector/v_initval.c linux/tools/testing/selftests/riscv/vector/v_initval.c
+--- linux-6.12.1/tools/testing/selftests/riscv/vector/v_initval.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/tools/testing/selftests/riscv/vector/v_initval.c	2024-11-29 08:52:42.462784086 +0000
+@@ -0,0 +1,22 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include "../../kselftest_harness.h"
++#include "v_helpers.h"
++
++#define NEXT_PROGRAM "./v_exec_initval_nolibc"
++
++TEST(v_initval)
++{
++	int xtheadvector = 0;
++
++	if (!is_vector_supported()) {
++		if (is_xtheadvector_supported())
++			xtheadvector = 1;
++		else
++			SKIP(return, "Vector not supported");
++	}
++
++	ASSERT_EQ(0, launch_test(NEXT_PROGRAM, 0, xtheadvector));
++}
++
++TEST_HARNESS_MAIN
+diff -uNr linux-6.12.1/tools/testing/selftests/riscv/vector/vstate_exec_nolibc.c linux/tools/testing/selftests/riscv/vector/vstate_exec_nolibc.c
+--- linux-6.12.1/tools/testing/selftests/riscv/vector/vstate_exec_nolibc.c	2024-11-22 14:30:26.000000000 +0000
++++ linux/tools/testing/selftests/riscv/vector/vstate_exec_nolibc.c	2024-11-29 08:52:42.462784086 +0000
+@@ -6,13 +6,16 @@
+ 
+ int main(int argc, char **argv)
+ {
+-	int rc, pid, status, test_inherit = 0;
++	int rc, pid, status, test_inherit = 0, xtheadvector = 0;
+ 	long ctrl, ctrl_c;
+ 	char *exec_argv[2], *exec_envp[2];
+ 
+-	if (argc > 1)
++	if (argc > 1 && strcmp(argv[1], "x"))
+ 		test_inherit = 1;
+ 
++	if (argc > 2 && strcmp(argv[2], "x"))
++		xtheadvector = 1;
++
+ 	ctrl = my_syscall1(__NR_prctl, PR_RISCV_V_GET_CONTROL);
+ 	if (ctrl < 0) {
+ 		puts("PR_RISCV_V_GET_CONTROL is not supported\n");
+@@ -53,11 +56,14 @@
+ 				puts("child's vstate_ctrl not equal to parent's\n");
+ 				exit(-1);
+ 			}
+-			asm volatile (".option push\n\t"
+-				      ".option arch, +v\n\t"
+-				      "vsetvli x0, x0, e32, m8, ta, ma\n\t"
+-				      ".option pop\n\t"
+-				      );
++			if (xtheadvector)
++				asm volatile (".4byte	0x00007ed7");
++			else
++				asm volatile (".option push\n\t"
++					".option arch, +v\n\t"
++					"vsetvli x0, x0, e32, m8, ta, ma\n\t"
++					".option pop\n\t"
++					);
+ 			exit(ctrl);
+ 		}
+ 	}

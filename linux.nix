@@ -29,11 +29,11 @@
     kernelPatches = [
       {
         name = "xthead";
-        patch = ./xtheadvector-6.12.1-new.patch;
+        patch = ./xtheadvector-6.13-new.patch;
       }
     ];
 
-    configfile = ./xtheadvector-btrfs.config;
+    configfile = ./6.13.config;
     allowImportFromDerivation = true;
   }
 ).overrideAttrs
