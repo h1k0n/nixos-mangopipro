@@ -38,9 +38,8 @@
                 src = prev.fetchFromGitHub {
                   owner = "kdave";
                   repo = "btrfs-progs";
-                  # devel 2024.09.10; Remove v6.11 release.
-                  rev = "c75b2f2c77c9fdace08a57fe4515b45a4616fa21";
-                  hash = "sha256-PgispmDnulTDeNnuEDdFO8FGWlGx/e4cP8MQMd9opFw=";
+                  rev = "85ca0a6d60c14eefda509970a26616ff16115612";
+                  hash = "sha256-iMFGrQ0B5/HsxHT+XtlsD7qGB3HXy3gMwLoRP64CWTY=";
                 };
 
                 patches = [
@@ -54,7 +53,7 @@
 
                 preConfigure = "./autogen.sh";
 
-                version = "6.11.0.pre";
+                version = "6.13.0";
               });
             })
         ];

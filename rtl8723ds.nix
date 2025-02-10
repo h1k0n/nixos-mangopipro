@@ -24,6 +24,7 @@ stdenv.mkDerivation {
 
   makeFlags =
     [
+      "USER_EXTRA_CFLAGS=-Wno-error=incompatible-pointer-types"
       "ARCH=${stdenv.hostPlatform.linuxArch}"
     ]
     ++ lib.optionals (stdenv.hostPlatform != stdenv.buildPlatform) [

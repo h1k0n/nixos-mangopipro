@@ -11,11 +11,11 @@
 }@args:
 (
   let
+    version = "6.13.2";
     src = fetchurl {
-      url = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.12.8.tar.gz";
-      sha256 = "sha256-ISZGtBeisspXg0WelxujFJ9HKgkumpp1YaHYhIXVGBI=";
+      url = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.13.2.tar.gz";
+      sha256 = "sha256-K1TlUFR+K9v7Rstjz7AYOYPSs/DzZ4li9lN5XvReERw=";
     };
-    version = "6.12.8";
   in
   # kernelStdenv = overrideCC stdenv buildPackages.gcc14;
 
@@ -25,7 +25,7 @@
     stdenv = stdenv.override (
       prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; }
     );
-    modDirVersion = "6.12.8";
+    modDirVersion = version;
     kernelPatches = [
       {
         name = "xthead";
