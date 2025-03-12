@@ -11,10 +11,10 @@
 }@args:
 (
   let
-    version = "6.13.2";
+    version = "6.14-rc6";
     src = fetchurl {
-      url = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.13.2.tar.gz";
-      sha256 = "sha256-K1TlUFR+K9v7Rstjz7AYOYPSs/DzZ4li9lN5XvReERw=";
+      url = "https://github.com/torvalds/linux/archive/refs/tags/v6.14-rc6.tar.gz";
+      sha256 = "";
     };
   in
   # kernelStdenv = overrideCC stdenv buildPackages.gcc14;
@@ -26,14 +26,8 @@
       prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; }
     );
     modDirVersion = version;
-    kernelPatches = [
-      {
-        name = "xthead";
-        patch = ./xtheadvector-6.13-new.patch;
-      }
-    ];
 
-    configfile = ./6.13.config;
+    configfile = ./6.14rc6.config;
     allowImportFromDerivation = true;
   }
 ).overrideAttrs
