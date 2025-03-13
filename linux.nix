@@ -12,6 +12,7 @@
 (
   let
     version = "6.14-rc6";
+    modVersion = "6.14.0-rc6";
     src = fetchurl {
       url = "https://github.com/torvalds/linux/archive/refs/tags/v6.14-rc6.tar.gz";
       sha256 = "sha256-wPR5uEM1knyl+FsXu/s/aFcsEtpYJJ2b2VFC/iuhOV0=";
@@ -25,7 +26,7 @@
     stdenv = stdenv.override (
       prev: lib.recursiveUpdate prev { hostPlatform.linux-kernel.DTB = false; }
     );
-    modDirVersion = version;
+    modDirVersion = modVersion;
 
     configfile = ./6.14rc6.config;
     allowImportFromDerivation = true;
