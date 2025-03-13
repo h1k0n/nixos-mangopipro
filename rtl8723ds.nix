@@ -21,7 +21,7 @@ stdenv.mkDerivation {
 
   nativeBuildInputs = [ bc ];
   buildInputs = kernel.moduleBuildDependencies;
-
+  patches = [ ./49.patch ];
   makeFlags =
     [
       "USER_EXTRA_CFLAGS=-Wno-error=incompatible-pointer-types"
