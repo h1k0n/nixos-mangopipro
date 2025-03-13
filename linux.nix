@@ -14,7 +14,7 @@
     version = "6.14-rc6";
     src = fetchurl {
       url = "https://github.com/torvalds/linux/archive/refs/tags/v6.14-rc6.tar.gz";
-      sha256 = "";
+      sha256 = "sha256-wPR5uEM1knyl+FsXu/s/aFcsEtpYJJ2b2VFC/iuhOV0=";
     };
   in
   # kernelStdenv = overrideCC stdenv buildPackages.gcc14;
