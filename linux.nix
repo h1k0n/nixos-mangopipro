@@ -11,10 +11,10 @@
 }@args:
 (
   let
-    version = "6.14-rc6";
-    modVersion = "6.14.0-rc6";
+    version = "6.14.1";
+    modVersion = "6.14.1";
     src = fetchurl {
-      url = "https://github.com/torvalds/linux/archive/refs/tags/v6.14-rc6.tar.gz";
+      url = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.14.1.tar.gz";
       sha256 = "sha256-wPR5uEM1knyl+FsXu/s/aFcsEtpYJJ2b2VFC/iuhOV0=";
     };
   in
