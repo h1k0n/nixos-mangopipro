@@ -9,7 +9,7 @@
 
 {
 
-  imports = [ ./sd-image-btrfs.nix ];
+  imports = [ ./sdimage-ext4.nix ];
 
   # Boot0 -> U-Boot
   sdImage = {
@@ -36,7 +36,7 @@
     kernelParams = [
       "earlycon=sbi"
       "root=/dev/mmcblk0p2"
-      "rootfstype=btrfs"
+      "rootfstype=ext4"
       "console=ttyS0,115200n8"
       "rootwait"
       "debug"
@@ -45,7 +45,7 @@
       "dm_mod"
     ];
     initrd.availableKernelModules = lib.mkForce [
-      "btrfs"
+      "ext4"
       "sd_mod"
       "mmc_block"
       "hid"
@@ -58,7 +58,6 @@
     extraModulePackages = [ pkgsKernel.linuxPackages_nezha.rtl8723ds ];
     # Exclude zfs
     supportedFilesystems = lib.mkForce [
-      "btrfs"
       "vfat"
       "ext4"
     ];

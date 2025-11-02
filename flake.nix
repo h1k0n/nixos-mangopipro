@@ -26,38 +26,6 @@
           (import ./overlay.nix)
         ];
       };
-      pkgNative = import nixpkgs {
-        localSystem = "x86_64-linux";
-
-        overlays = [
-          (
-            final: prev:
-
-            rec {
-              btrfs-progs = prev.btrfs-progs.overrideAttrs (oldAttrs: {
-                src = prev.fetchFromGitHub {
-                  owner = "kdave";
-                  repo = "btrfs-progs";
-                  rev = "85ca0a6d60c14eefda509970a26616ff16115612";
-                  hash = "sha256-iMFGrQ0B5/HsxHT+XtlsD7qGB3HXy3gMwLoRP64CWTY=";
-                };
-
-                patches = [
-                  ./mkfs-btrfs-force-root-ownership.patch
-                ];
-                postPatch = "";
-                nativeBuildInputs = oldAttrs.nativeBuildInputs ++ [
-                  prev.autoconf
-                  prev.automake
-                ];
-
-                preConfigure = "./autogen.sh";
-
-                version = "6.13.0";
-              });
-            })
-        ];
-      };
     in
     {
       # expose this flake's overlay
@@ -69,7 +37,6 @@
 
         specialArgs = {
           pkgsKernel = pkgsKernelCross;
-          pkgsNative = pkgNative;
         };
         modules = [
           {
