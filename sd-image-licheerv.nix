@@ -62,7 +62,6 @@
       "vfat"
       "ext4"
     ];
-    readOnlyNixStore = false;
   };
   hardware = {
     deviceTree = {
