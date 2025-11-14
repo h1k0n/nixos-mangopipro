@@ -35,7 +35,8 @@ stdenv.mkDerivation {
       --replace /lib/modules/ "${kernel.dev}/lib/modules/" \
       --replace '$(shell uname -r)' "${kernel.modDirVersion}" \
       --replace /sbin/depmod \# \
-      --replace '$(MODDESTDIR)' "$out/lib/modules/${kernel.modDirVersion}/kernel/net/wireless/"
+      --replace '$(MODDESTDIR)' "$out/lib/modules/${kernel.modDirVersion}/kernel/net/wireless/" \
+      --replace EXTRA_CFLAGS ccflags-y
   '';
 
   preInstall = ''
