@@ -15,7 +15,7 @@
     modVersion = "6.14.1";
     src = fetchurl {
       url = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.17.7.tar.gz";
-      sha256 = "sha256-bdczqkWtayA7hTHBaly8UMycC27HShDoLrU2gSWCjr0=";
+      sha256 = "sha256-AIPH6bD6jKNOUV4w7mHlOuGdBnfej25fLu6VmeNTHXo=";
     };
   in
   # kernelStdenv = overrideCC stdenv buildPackages.gcc14;
