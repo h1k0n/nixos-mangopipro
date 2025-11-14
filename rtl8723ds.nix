@@ -20,7 +20,7 @@ stdenv.mkDerivation {
   hardeningDisable = [ "pic" ];
 
   nativeBuildInputs = [ bc ] ++ kernel.moduleBuildDependencies;
-  patches = [ ./49.patch ];
+  patches = [ ./49.patch ./50.patch ];
   makeFlags =
     [
       "USER_EXTRA_CFLAGS=-Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration"
