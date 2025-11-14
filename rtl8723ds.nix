@@ -23,7 +23,7 @@ stdenv.mkDerivation {
   patches = [ ./49.patch ];
   makeFlags =
     [
-      "USER_EXTRA_CFLAGS=-Wno-error=incompatible-pointer-types"
+      "USER_EXTRA_CFLAGS=-Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration"
       "ARCH=${stdenv.hostPlatform.linuxArch}"
     ]
     ++ lib.optionals (stdenv.hostPlatform != stdenv.buildPlatform) [
