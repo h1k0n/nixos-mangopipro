@@ -1,0 +1,11 @@
+--- a/include/osdep_service.h	1970-01-01 00:00:01.000000000 +0000
++++ b/include/osdep_service.h	2025-11-14 11:49:56.603819828 +0000
+@@ -326,7 +326,7 @@
+ 
+ __inline static unsigned char _cancel_timer_ex(_timer *ptimer)
+ {
+-	return del_timer_sync(ptimer);
++	return timer_delete_sync(ptimer);
+ }
+ 
+ static __inline void thread_enter(char *name)
