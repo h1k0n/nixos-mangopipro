@@ -1,0 +1,11 @@
+--- a/include/osdep_service_linux.h	1970-01-01 00:00:01.000000000 +0000
++++ b/include/osdep_service_linux.h	2025-11-14 11:35:31.373766706 +0000
+@@ -304,7 +304,7 @@
+ 
+ __inline static void _cancel_timer(_timer *ptimer, u8 *bcancelled)
+ {
+-	del_timer_sync(ptimer);
++	timer_delete_sync(ptimer);
+ 	*bcancelled = 1;
+ }
+ 
