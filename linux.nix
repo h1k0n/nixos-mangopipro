@@ -11,8 +11,8 @@
 }@args:
 (
   let
-    version = "6.14.1";
-    modVersion = "6.14.1";
+    version = "6.17.7";
+    modVersion = "6.17.7";
     src = fetchurl {
       url = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.17.7.tar.gz";
       sha256 = "sha256-AIPH6bD6jKNOUV4w7mHlOuGdBnfej25fLu6VmeNTHXo=";
