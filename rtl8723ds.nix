@@ -11,23 +11,18 @@ stdenv.mkDerivation {
   version = "${kernel.version}-unstable-2023-11-15";
 
   src = fetchFromGitHub {
-    owner = "lwfinger";
+    owner = "Benetti-Engineering";
     repo = "rtl8723ds";
-    rev = "52e593e8c889b68ba58bd51cbdbcad7fe71362e4";
-    sha256 = "sha256-SszvDuWN9opkXyVQAOLjnNtPp93qrKgnGvzK0y7Y9b0=";
+    rev = "546ffb2cb735e0c33e765936721bd66dd58e6893";
+    sha256 = "sha256-Wv6yYcGXakyMFaVBRwfKPn/DFRHomYLBX1hAsXgqqs4=";
   };
 
   hardeningDisable = [ "pic" ];
 
   nativeBuildInputs = [ bc ] ++ kernel.moduleBuildDependencies;
-  patches = [
-    ./49.patch
-    ./50.patch
-    ./51.patch
-  ];
   makeFlags =
     [
-      "USER_EXTRA_CFLAGS=-Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration"
+  #    "USER_EXTRA_CFLAGS=-Wno-error=incompatible-pointer-types -Wno-error=-Wmissing-prototypes"
       "ARCH=${stdenv.hostPlatform.linuxArch}"
     ]
     ++ lib.optionals (stdenv.hostPlatform != stdenv.buildPlatform) [
@@ -51,7 +46,7 @@ stdenv.mkDerivation {
 
   meta = {
     description = "Linux driver for RTL8723DS.";
-    homepage = "https://github.com/lwfinger/rtl8723ds";
+    homepage = "https://github.com/Benetti-Engineering/rtl8723ds";
     license = lib.licenses.gpl2Only;
     platforms = lib.platforms.linux;
     maintainers = with lib.maintainers; [ chuangzhu ];
