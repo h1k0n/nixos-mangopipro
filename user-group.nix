@@ -14,8 +14,8 @@ in
   networking.hostName = hostname;
   networking.wireless.enable = true;
   networking.wireless.networks = {
-    CMCC-Tc75 = {
-      psk = "tm0uxtt2";
+    CMCC-EHG4 = {
+      psk = "13570989900";
     };
   };
   services.openssh.enable = true;
