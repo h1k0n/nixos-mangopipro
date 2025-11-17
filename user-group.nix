@@ -15,7 +15,7 @@ in
   networking.wireless.enable = true;
   networking.wireless.networks = {
     CMCC-EHG4 = {
-      psk = "13570989900";
+      psk = "15994797716";
     };
   };
   services.openssh.enable = true;

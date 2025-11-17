@@ -29,13 +29,13 @@ let
       inherit pkgsNative;
       compressImage = config.sdImage.compressImage;
       populateImageCommands = config.sdImage.populateRootCommands;
-      volumeLabel = "NIXOS_SD";
+      volumeLabel = "root";
+      uuid = "18db6211-ac36-42c1-a22f-5e15e1486e0d";
       subvolMap =
         let
           # UUID is for BTRFS root device, not just subvol ones.  Ooops.
-          fileSystems = builtins.filter (
-            fs: ((builtins.any (opt: lib.hasPrefix "subvol=" opt) fs.options))
-          ) config.system.build.fileSystems;
+          btrfsSubVolDevice = "/dev/disk/by-uuid/18db6211-ac36-42c1-a22f-5e15e1486e0d";
+          fileSystems = builtins.filter (fs: ((fs.device == btrfsSubVolDevice) && (builtins.any (opt: lib.hasPrefix "subvol=" opt) fs.options))) config.system.build.fileSystems;
           stripSubVolOption = opt: lib.removePrefix "subvol=" opt;
           getSubVolOption =
             opts: stripSubVolOption (builtins.head (builtins.filter (opt: lib.hasPrefix "subvol=" opt) opts));
@@ -195,24 +195,18 @@ in
 
   config = {
     fileSystems = {
-      "/boot/firmware" = {
-        device = "/dev/disk/by-label/${config.sdImage.firmwarePartitionName}";
-        fsType = "vfat";
-        # Alternatively, this could be removed from the configuration.
-        # The filesystem is not needed at runtime, it could be treated
-        # as an opaque blob instead of a discrete FAT32 filesystem.
-        options = [
-          "nofail"
-          "noauto"
-        ];
-      };
         "/" = {
-          device = "/dev/disk/by-uuid/NIXOS_SD";
+          device = "/dev/disk/by-uuid/18db6211-ac36-42c1-a22f-5e15e1486e0d";
           fsType = "btrfs";
           options = [ "noatime" "compress=zstd" "subvol=/@" ];
         };
+        "/boot" = {
+          device = "/dev/disk/by-uuid/18db6211-ac36-42c1-a22f-5e15e1486e0d";
+          fsType = "btrfs";
+          options = [ "noatime" "compress=zstd" "subvol=/@boot" ];
+        };
         "/nix" = {
-          device = "/dev/disk/by-uuid/NIXOS_SD";
+          device = "/dev/disk/by-uuid/18db6211-ac36-42c1-a22f-5e15e1486e0d";
           fsType = "btrfs";
           options = [ "noatime" "compress=zstd" "subvol=/@nix" ];
         };
@@ -332,25 +326,45 @@ in
           ${pkgs.parted}/bin/partprobe
           ${pkgs.btrfs-progs}/bin/btrfs filesystem resize max /
         '';
-        nixPathRegistrationFile = config.sdImage.nixPathRegistrationFile;
+        btrfsResizeCommands = ''
+          ${pkgs.btrfs-progs}/bin/btrfs filesystem resize max $rootPath
+        '';
+        registrationPath = "/nix/nix-path-registration";
       in
       ''
         # On the first boot do some maintenance tasks
-        if [ -f ${nixPathRegistrationFile} ]; then
+        if [ -f ${registrationPath} ]; then
           set -euo pipefail
           set -x
 
-          ${expandOnBoot}
+          # Figure out device names for the boot device and root filesystem.
+          rootPart=$(${pkgs.util-linux}/bin/findmnt -n -o SOURCE /)
+          rootPath=/
+          if [ $rootPart = "none" ]; then
+            # If rootPart is none, then /nix is the source of our fs.
+            # This is for impermanence btrfs-subvol builds.
+            rootPart=$(${pkgs.util-linux}/bin/findmnt -n -o SOURCE /nix)
+            rootPath=/nix
+          fi
+          # Remove BTRFS SubVol from rootPart if it exists
+          rootPart=''${rootPart//\[*/}
+          rootDevice=$(lsblk -npo PKNAME $rootPart)
+          partNum=$(lsblk -npo PARTN $rootPart)
+
+          # Resize the root partition and the filesystem to fit the disk
+          echo ",+," | sfdisk -N$partNum --no-reread $rootDevice
+          ${pkgs.parted}/bin/partprobe
+          ${btrfsResizeCommands}
 
           # Register the contents of the initial Nix store
-          ${config.nix.package.out}/bin/nix-store --load-db < ${nixPathRegistrationFile}
+          ${config.nix.package.out}/bin/nix-store --load-db < ${registrationPath}
 
           # nixos-rebuild also requires a "system" profile and an /etc/NIXOS tag.
           touch /etc/NIXOS
           ${config.nix.package.out}/bin/nix-env -p /nix/var/nix/profiles/system --set /run/current-system
 
           # Prevents this from running on later boots.
-          rm -f ${nixPathRegistrationFile}
+          rm -f ${registrationPath}
         fi
       '';
   };

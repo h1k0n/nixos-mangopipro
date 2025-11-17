@@ -18,7 +18,6 @@
   uuid ? "44444444-4444-4444-8888-888888888888",
   btrfs-progs,
   libfaketime,
-  fakeroot,
   pkgsNative,
   subvolMap ? { },
 }:
@@ -32,7 +31,6 @@ pkgs.stdenv.mkDerivation {
   nativeBuildInputs = [
     pkgsNative.btrfs-progs
     libfaketime
-    fakeroot
   ] ++ lib.optional compressImage zstd;
 
   buildCommand =
