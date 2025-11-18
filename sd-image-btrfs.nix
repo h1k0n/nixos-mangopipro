@@ -270,41 +270,13 @@ in
           # The "bootable" partition is where u-boot will look file for the bootloader
           # information (dtbs, extlinux.conf file).
           sgdisk --clear --set-alignment=2 \
-            --new=1:''${gap}M:+${toString config.sdImage.firmwareSize}M --change-name=1:boot --typecode=1:EBD0A0A2-B9E5-4433-87C0-68B6B72699C7 \
-            --new=2:$((gap + ${toString config.sdImage.firmwareSize}))M:+''${rootSizeBlocks} --change-name=2:root --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4 -A 2:set:2 \
+            --new=1:$((gap + ${toString config.sdImage.firmwareSize}))M:+''${rootSizeBlocks} --change-name=2:root --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4 -A 1:set:2 \
           $img
 
           # Copy the rootfs into the SD image
-          eval $(partx $img -o START,SECTORS --nr 2 --pairs)
+          eval $(partx $img -o START,SECTORS --nr 1 --pairs)
           dd conv=notrunc if=$root_fs of=$img seek=$START count=$SECTORS
 
-          # Create a FAT32 /boot/firmware partition of suitable size into firmware_part.img
-          eval $(partx $img -o START,SECTORS --nr 1 --pairs)
-          truncate -s $((SECTORS * 512)) firmware_part.img
-
-          mkfs.vfat --invariant -i ${config.sdImage.firmwarePartitionID} -n ${config.sdImage.firmwarePartitionName} firmware_part.img
-
-          # Populate the files intended for /boot/firmware
-          mkdir firmware
-          ${config.sdImage.populateFirmwareCommands}
-
-          find firmware -exec touch --date=2000-01-01 {} +
-          # Copy the populated /boot/firmware into the SD image
-          cd firmware
-          # Force a fixed order in mcopy for better determinism, and avoid file globbing
-          for d in $(find . -type d -mindepth 1 | sort); do
-            faketime "2000-01-01 00:00:00" mmd -i ../firmware_part.img "::/$d"
-          done
-          for f in $(find . -type f | sort); do
-            mcopy -pvm -i ../firmware_part.img "$f" "::/$f"
-          done
-          cd ..
-
-          # Verify the FAT partition before copying it.
-          fsck.vfat -vn firmware_part.img
-          dd conv=notrunc if=firmware_part.img of=$img seek=$START count=$SECTORS
-
-          ${config.sdImage.postBuildCommands}
 
           if test -n "$compressImage"; then
               zstd -T$NIX_BUILD_CORES --rm $img

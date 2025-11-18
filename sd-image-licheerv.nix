@@ -23,7 +23,7 @@
     '';
     # Sun20i_d1_spl doesn't support loading U-Boot from a partition. The line below is a stub
     populateFirmwareCommands = "";
-    # compressImage = false;
+    compressImage = false;
   };
 
   # U-Boot -> kernel -> initrd -> init
