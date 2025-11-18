@@ -270,7 +270,7 @@ in
           # The "bootable" partition is where u-boot will look file for the bootloader
           # information (dtbs, extlinux.conf file).
           sgdisk --clear --set-alignment=2 \
-            --new=1:$((gap + ${toString config.sdImage.firmwareSize}))M:+''${rootSizeBlocks} --change-name=2:root --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4 -A 1:set:2 \
+            --new=1:$((gap + ${toString config.sdImage.firmwareSize}))M:+''${rootSizeBlocks} --change-name=1:root --typecode=1:0FC63DAF-8483-4772-8E79-3D69D8477DE4 -A 1:set:2 \
           $img
 
           # Copy the rootfs into the SD image
