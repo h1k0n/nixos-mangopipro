@@ -11,11 +11,11 @@
 }@args:
 (
   let
-    version = "6.17.7";
-    modVersion = "6.17.7";
+    version = "6.19.11";
+    modVersion = "6.19.11";
     src = fetchurl {
-      url = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.17.7.tar.gz";
-      sha256 = "sha256-AIPH6bD6jKNOUV4w7mHlOuGdBnfej25fLu6VmeNTHXo=";
+      url = "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.19.11.tar.xz";
+      sha256 = "sha256-IAOde2slbAi+L4+sQ8P/mmIDCMcDxkPPL4DDkQub1Zs=";
     };
   in
   # kernelStdenv = overrideCC stdenv buildPackages.gcc14;

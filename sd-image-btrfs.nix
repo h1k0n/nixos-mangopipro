@@ -207,14 +207,9 @@ in
         ];
       };
         "/" = {
-          device = "/dev/disk/by-uuid/NIXOS_SD";
+          device = "/dev/disk/by-label/NIXOS_SD";
           fsType = "btrfs";
           options = [ "noatime" "compress=zstd" "subvol=/@" ];
-        };
-        "/nix" = {
-          device = "/dev/disk/by-uuid/NIXOS_SD";
-          fsType = "btrfs";
-          options = [ "noatime" "compress=zstd" "subvol=/@nix" ];
         };
     };
 
