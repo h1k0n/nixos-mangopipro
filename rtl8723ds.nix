@@ -13,8 +13,8 @@ stdenv.mkDerivation {
   src = fetchFromGitHub {
     owner = "Benetti-Engineering";
     repo = "rtl8723ds";
-    rev = "546ffb2cb735e0c33e765936721bd66dd58e6893";
-    sha256 = "sha256-Wv6yYcGXakyMFaVBRwfKPn/DFRHomYLBX1hAsXgqqs4=";
+    rev = "122a574f780da32bb0de760bf089a3a9ec1e8f87";
+    sha256 = "sha256-9dLrQW2qlUR4rdy2uH08gYSJPQFfW2hIp3aDcQPxfFI=";
   };
 
   hardeningDisable = [ "pic" ];

@@ -35,8 +35,7 @@
     kernelPackages = pkgsKernel.linuxPackages_nezha;
     kernelParams = [
       "earlycon=sbi"
-      "root=LABEL=NIXOS_SD"
-      "rootflags=subvol=/@"
+      "root=/dev/mmcblk0p2"
       "rootfstype=btrfs"
       "console=ttyS0,115200n8"
       "rootwait"
@@ -45,7 +44,7 @@
     initrd.kernelModules = [
       "dm_mod"
     ];
-    initrd.availableKernelModules = [
+    initrd.availableKernelModules = lib.mkForce [
       "btrfs"
       "sd_mod"
       "mmc_block"

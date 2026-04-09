@@ -69,8 +69,6 @@ pkgs.stdenv.mkDerivation {
       )
 
       mkdir -p ./rootImage/nix/store
-      mkdir -p ./rootImage/dev ./rootImage/proc ./rootImage/sys ./rootImage/etc ./rootImage/bin ./rootImage/tmp
-      chmod 1777 ./rootImage/tmp
 
       xargs -I % cp -a --reflink=auto % -t ./rootImage/nix/store/ < ${sdClosureInfo}/store-paths
       (
