@@ -35,7 +35,7 @@
     kernelPackages = pkgsKernel.linuxPackages_nezha;
     kernelParams = [
       "earlycon=sbi"
-      "rootflags=@"
+      "rootflags=subvol=@"
       "root=/dev/mmcblk0p2"
       "rootfstype=btrfs"
       "console=ttyS0,115200n8"

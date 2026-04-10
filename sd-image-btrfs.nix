@@ -210,6 +210,7 @@ in
           device = "/dev/disk/by-label/NIXOS_SD";
           fsType = "btrfs";
           options = [ "noatime" "compress=zstd" "subvol=/@"  ];
+          neededForBoot = true;
         };
     };
 
