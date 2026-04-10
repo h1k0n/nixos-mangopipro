@@ -211,16 +211,6 @@ in
           fsType = "btrfs";
           options = [ "noatime" "compress=zstd" "subvol=/@"  ];
         };
-        "/boot" = {
-          device = "/dev/disk/by-label/NIXOS_SD";
-          fsType = "btrfs";
-          options = [ "noatime" "compress=zstd" "subvol=/@boot" ];
-        };
-        "/nix" = {
-          device = "/dev/disk/by-label/NIXOS_SD";
-          fsType = "btrfs";
-          options = [ "noatime" "compress=zstd" "subvol=/@nix" ];
-        };
     };
 
     sdImage.storePaths = [ config.system.build.toplevel ];
