@@ -14,6 +14,7 @@
   # Boot0 -> U-Boot
   sdImage = {
     firmwarePartitionOffset = 20;
+    createFirmwarePartition = false;
     postBuildCommands = ''
       dd conv=notrunc if=${pkgsKernel.buildUB.ubootD1}/u-boot-sunxi-with-spl.bin of=$img bs=512 seek=256
     '';
@@ -21,7 +22,6 @@
       mkdir -p ./files/boot
       ${config.boot.loader.generic-extlinux-compatible.populateCmd} -c ${config.system.build.toplevel} -d ./files/boot
     '';
-    # Sun20i_d1_spl doesn't support loading U-Boot from a partition. The line below is a stub
     populateFirmwareCommands = "";
     # compressImage = false;
   };
@@ -35,9 +35,6 @@
     kernelPackages = pkgsKernel.linuxPackages_nezha;
     kernelParams = [
       "earlycon=sbi"
-      "rootflags=subvol=@"
-      "root=/dev/mmcblk0p2"
-      "rootfstype=btrfs"
       "console=ttyS0,115200n8"
       "rootwait"
       "debug"
@@ -55,6 +52,8 @@
       "usbhid"
       "hid_generic"
     ];
+    initrd.compressor = "gzip";
+    initrd.systemd.enable = true;
 
     extraModulePackages = [ pkgsKernel.linuxPackages_nezha.rtl8723ds ];
     # Exclude zfs

@@ -1,6 +1,6 @@
 diff -uNr u-boot/include/config_distro_bootcmd.h u-boot-new/include/config_distro_bootcmd.h
---- u-boot/include/config_distro_bootcmd.h	2024-11-02 08:44:11.572236475 +0800
-+++ u-boot-new/include/config_distro_bootcmd.h	2024-11-02 08:55:45.877202594 +0800
+--- u-boot/include/config_distro_bootcmd.h	2026-04-12 03:53:12.187152524 +0000
++++ u-boot-new/include/config_distro_bootcmd.h	2026-04-12 03:53:12.564150856 +0000
 @@ -468,7 +468,7 @@
  	BOOTENV_SHARED_EFI \
  	BOOTENV_SHARED_VIRTIO \
@@ -10,3 +10,28 @@ diff -uNr u-boot/include/config_distro_bootcmd.h u-boot-new/include/config_distr
  	"boot_scripts=boot.scr.uimg boot.scr\0" \
  	"boot_script_dhcp=boot.scr.uimg\0" \
  	BOOTENV_BOOT_TARGETS \
+diff -uNr u-boot/include/configs/sunxi-common.h u-boot-new/include/configs/sunxi-common.h
+--- u-boot/include/configs/sunxi-common.h	2026-04-12 03:52:19.039387641 +0000
++++ u-boot-new/include/configs/sunxi-common.h	2026-04-12 03:52:19.091387411 +0000
+@@ -156,11 +156,11 @@
+  */
+ #define BOOTM_SIZE        __stringify(0x2e00000)
+ #define KERNEL_ADDR_R     __stringify(SDRAM_OFFSET(1000000))
+-#define FDT_ADDR_R        __stringify(SDRAM_OFFSET(1800000))
++#define FDT_ADDR_R        __stringify(SDRAM_OFFSET(f000000))
+ #define SCRIPT_ADDR_R     __stringify(SDRAM_OFFSET(1900000))
+ #define PXEFILE_ADDR_R    __stringify(SDRAM_OFFSET(1A00000))
+ #define FDTOVERLAY_ADDR_R __stringify(SDRAM_OFFSET(1B00000))
+-#define RAMDISK_ADDR_R    __stringify(SDRAM_OFFSET(1C00000))
++#define RAMDISK_ADDR_R    __stringify(0x50000000)
+ 
+ #elif (CONFIG_SUNXI_MINIMUM_DRAM_MB >= 32)
+ /*
+@@ -181,6 +181,7 @@
+ #endif
+ 
+ #define MEM_LAYOUT_ENV_SETTINGS \
++	"initrd_high=0xffffffffffffffff\0" \
+ 	"bootm_size=" BOOTM_SIZE "\0" \
+ 	"kernel_addr_r=" KERNEL_ADDR_R "\0" \
+ 	"fdt_addr_r=" FDT_ADDR_R "\0" \

@@ -120,6 +120,15 @@ in
       '';
     };
 
+    createFirmwarePartition = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Whether to create a separate FAT firmware partition in the image.
+        Disable this for boards that boot directly from the main root filesystem.
+      '';
+    };
+
     rootPartitionUUID = mkOption {
       type = types.nullOr types.str;
       default = null;
@@ -194,35 +203,35 @@ in
   };
 
   config = {
-    fileSystems = {
-      "/boot/firmware" = {
-        device = "/dev/disk/by-label/${config.sdImage.firmwarePartitionName}";
-        fsType = "vfat";
-        # Alternatively, this could be removed from the configuration.
-        # The filesystem is not needed at runtime, it could be treated
-        # as an opaque blob instead of a discrete FAT32 filesystem.
-        options = [
-          "nofail"
-          "noauto"
-        ];
-      };
+    fileSystems =
+      lib.optionalAttrs config.sdImage.createFirmwarePartition {
+        "/boot/firmware" = {
+          device = "/dev/disk/by-label/${config.sdImage.firmwarePartitionName}";
+          fsType = "vfat";
+          options = [
+            "nofail"
+            "noauto"
+          ];
+        };
+      }
+      // {
         "/" = {
           device = "/dev/disk/by-label/NIXOS_SD";
           fsType = "btrfs";
-          options = [ "noatime" "compress=zstd" "subvol=/@"  ];
+          options = [ "noatime" "compress=zstd" "subvol=@"  ];
         };
         "/boot" = {
           device = "/dev/disk/by-label/NIXOS_SD";
           fsType = "btrfs";
-          options = [ "noatime" "compress=zstd" "subvol=/@boot"  ];
+          options = [ "noatime" "compress=zstd" "subvol=@boot"  ];
         };
         "/nix" = {
           device = "/dev/disk/by-label/NIXOS_SD";
           fsType = "btrfs";
-          options = [ "noatime" "compress=zstd" "subvol=/@nix"  ];
+          options = [ "noatime" "compress=zstd" "subvol=@nix"  ];
           neededForBoot = true;
         };
-    };
+      };
 
     sdImage.storePaths = [ config.system.build.toplevel ];
 
@@ -252,6 +261,7 @@ in
         inherit (config.sdImage) imageName compressImage;
 
         buildCommand = ''
+          root_part_num=${if config.sdImage.createFirmwarePartition then "2" else "1"}
           mkdir -p $out/nix-support $out/sd-image
           export img=$out/sd-image/${config.sdImage.imageName}
 
@@ -272,49 +282,58 @@ in
           # Gap in front of the first partition, in MiB
           gap=${toString config.sdImage.firmwarePartitionOffset}
 
-          # Create the image file sized to fit /boot/firmware and /, plus slack for the gap.
+          # Create the image file sized to fit the partitions, plus slack for the gap.
           rootSizeBlocks=$(du -B 512 --apparent-size $root_fs | awk '{ print $1 }')
-          firmwareSizeBlocks=$((${toString config.sdImage.firmwareSize} * 1024 * 1024 / 512))
+          firmwareSizeBlocks=${if config.sdImage.createFirmwarePartition then ''$((${toString config.sdImage.firmwareSize} * 1024 * 1024 / 512))'' else "0"}
           imageSize=$((rootSizeBlocks * 512 + firmwareSizeBlocks * 512 + gap * 1024 * 1024 + 100 * 512))
           truncate -s $imageSize $img
 
           # type=b is 'W95 FAT32', type=83 is 'Linux'.
           # The "bootable" partition is where u-boot will look file for the bootloader
           # information (dtbs, extlinux.conf file).
-          sgdisk --clear --set-alignment=2 \
-            --new=1:''${gap}M:+${toString config.sdImage.firmwareSize}M --change-name=1:boot --typecode=1:EBD0A0A2-B9E5-4433-87C0-68B6B72699C7 \
-            --new=2:$((gap + ${toString config.sdImage.firmwareSize}))M:+''${rootSizeBlocks} --change-name=2:root --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4 -A 2:set:2 \
-          $img
+          ${lib.optionalString config.sdImage.createFirmwarePartition ''
+            sgdisk --clear --set-alignment=2 \
+              --new=1:''${gap}M:+${toString config.sdImage.firmwareSize}M --change-name=1:boot --typecode=1:EBD0A0A2-B9E5-4433-87C0-68B6B72699C7 \
+              --new=2:$((gap + ${toString config.sdImage.firmwareSize}))M:+''${rootSizeBlocks} --change-name=2:root --typecode=2:0FC63DAF-8483-4772-8E79-3D69D8477DE4 -A 2:set:2 \
+            $img
+          ''}
+          ${lib.optionalString (!config.sdImage.createFirmwarePartition) ''
+            sgdisk --clear --set-alignment=2 \
+              --new=1:''${gap}M:+''${rootSizeBlocks} --change-name=1:root --typecode=1:0FC63DAF-8483-4772-8E79-3D69D8477DE4 -A 1:set:2 \
+            $img
+          ''}
 
           # Copy the rootfs into the SD image
-          eval $(partx $img -o START,SECTORS --nr 2 --pairs)
+          eval $(partx $img -o START,SECTORS --nr $root_part_num --pairs)
           dd conv=notrunc if=$root_fs of=$img seek=$START count=$SECTORS
 
-          # Create a FAT32 /boot/firmware partition of suitable size into firmware_part.img
-          eval $(partx $img -o START,SECTORS --nr 1 --pairs)
-          truncate -s $((SECTORS * 512)) firmware_part.img
+          ${lib.optionalString config.sdImage.createFirmwarePartition ''
+            # Create a FAT32 /boot/firmware partition of suitable size into firmware_part.img
+            eval $(partx $img -o START,SECTORS --nr 1 --pairs)
+            truncate -s $((SECTORS * 512)) firmware_part.img
 
-          mkfs.vfat --invariant -i ${config.sdImage.firmwarePartitionID} -n ${config.sdImage.firmwarePartitionName} firmware_part.img
+            mkfs.vfat --invariant -i ${config.sdImage.firmwarePartitionID} -n ${config.sdImage.firmwarePartitionName} firmware_part.img
 
-          # Populate the files intended for /boot/firmware
-          mkdir firmware
-          ${config.sdImage.populateFirmwareCommands}
+            # Populate the files intended for /boot/firmware
+            mkdir firmware
+            ${config.sdImage.populateFirmwareCommands}
 
-          find firmware -exec touch --date=2000-01-01 {} +
-          # Copy the populated /boot/firmware into the SD image
-          cd firmware
-          # Force a fixed order in mcopy for better determinism, and avoid file globbing
-          for d in $(find . -type d -mindepth 1 | sort); do
-            faketime "2000-01-01 00:00:00" mmd -i ../firmware_part.img "::/$d"
-          done
-          for f in $(find . -type f | sort); do
-            mcopy -pvm -i ../firmware_part.img "$f" "::/$f"
-          done
-          cd ..
+            find firmware -exec touch --date=2000-01-01 {} +
+            # Copy the populated /boot/firmware into the SD image
+            cd firmware
+            # Force a fixed order in mcopy for better determinism, and avoid file globbing
+            for d in $(find . -type d -mindepth 1 | sort); do
+              faketime "2000-01-01 00:00:00" mmd -i ../firmware_part.img "::/$d"
+            done
+            for f in $(find . -type f | sort); do
+              mcopy -pvm -i ../firmware_part.img "$f" "::/$f"
+            done
+            cd ..
 
-          # Verify the FAT partition before copying it.
-          fsck.vfat -vn firmware_part.img
-          dd conv=notrunc if=firmware_part.img of=$img seek=$START count=$SECTORS
+            # Verify the FAT partition before copying it.
+            fsck.vfat -vn firmware_part.img
+            dd conv=notrunc if=firmware_part.img of=$img seek=$START count=$SECTORS
+          ''}
 
           ${config.sdImage.postBuildCommands}
 
