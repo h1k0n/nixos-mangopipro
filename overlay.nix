@@ -1,21 +1,19 @@
 final: prev:
 
 rec {
-  buildUB = prev.callPackage ./uboot-default.nix {
+  ubootPackages = prev.callPackage ./uboot-default.nix {
     stdenv = final.gcc14Stdenv;
   };
+
   linux_nezha = prev.callPackage ./linux.nix {
     stdenv = final.gcc14Stdenv;
   };
-  linuxPackages_nezha = packagesFor linux_nezha;
 
-  packagesFor =
-    kernel:
+  linuxPackages_nezha =
     let
-      origin = prev.linuxPackagesFor kernel;
+      base = prev.linuxPackagesFor linux_nezha;
     in
-    origin
-    // {
-      rtl8723ds = origin.callPackage ./rtl8723ds.nix { };
+    base // {
+      rtl8723ds = base.callPackage ./rtl8723ds.nix { };
     };
 }

@@ -1,73 +1,47 @@
 {
-  description = "NixOS running on mangopi pro";
+  description = "NixOS running on MangoPi MQ-Pro (RISC-V)";
 
   inputs = {
-    # nixpkgs do not provide binary cache for riscv64-linux, we need to build everything from scratch anyway.
-    # so we can use the small channel to get updates more quickly.
-    #    checkout more details here: https://hydra.nixos.org/jobset/nixos/release-23.05#tabs-jobs
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      ...
-    }:
+    { self, nixpkgs, ... }:
     let
-      buildFeatures = {
-        config = "riscv64-unknown-linux-gnu";
-      };
-      pkgsKernelCross = import nixpkgs {
+      # Cross-compilation pkgs: x86_64 host → riscv64 target (with board-specific overlay)
+      pkgsRiscv = import nixpkgs {
         localSystem = "x86_64-linux";
-        crossSystem = buildFeatures;
-
-        overlays = [
-          (import ./overlay.nix)
-        ];
+        crossSystem.config = "riscv64-unknown-linux-gnu";
+        overlays = [ (import ./overlay.nix) ];
       };
-      pkgNative = import nixpkgs {
+
+      # Native x86_64 pkgs (with patched btrfs-progs for image building)
+      pkgsNative = import nixpkgs {
         localSystem = "x86_64-linux";
-
         overlays = [
-          (
-            final: prev:
-
-            rec {
-              btrfs-progs = prev.btrfs-progs.overrideAttrs (oldAttrs: {
-                patches = [
-                  ./mkfs-btrfs-force-root-ownership-and-time.patch
-                ];
-                postPatch = "";
-              });
-            })
+          (_final: prev: {
+            btrfs-progs = prev.btrfs-progs.overrideAttrs (_old: {
+              patches = [ ./mkfs-btrfs-force-root-ownership-and-time.patch ];
+              postPatch = "";
+            });
+          })
         ];
       };
     in
     {
-      # expose this flake's overlay
-
       formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.nixfmt-rfc-style;
-      # cross-build an sd-image
+
       nixosConfigurations.mangopipro = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-
         specialArgs = {
-          pkgsKernel = pkgsKernelCross;
-          pkgsNative = pkgNative;
+          pkgsKernel = pkgsRiscv;
+          inherit pkgsNative;
         };
         modules = [
-          {
-            # cross-compilation this flake.
-            nixpkgs.crossSystem = {
-              system = "riscv64-linux";
-            };
-          }
-
+          { nixpkgs.crossSystem.system = "riscv64-linux"; }
           ./sd-image-licheerv.nix
           ./user-group.nix
         ];
       };
-
     };
 }
