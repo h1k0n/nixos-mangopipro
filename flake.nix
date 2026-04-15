@@ -2,7 +2,7 @@
   description = "NixOS running on MangoPi MQ-Pro (RISC-V)";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
   };
 
   outputs =
