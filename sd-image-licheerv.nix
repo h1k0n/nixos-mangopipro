@@ -6,6 +6,13 @@
   ...
 }:
 
+let
+  wirelessConf =
+    if builtins.pathExists ./wireless.conf then
+      ./wireless.conf
+    else
+      throw "Error: 'wireless.conf' not found in the project root! Please copy 'wireless.conf.example' to 'wireless.conf', fill in your secrets, and run 'git add --intent-to-add wireless.conf' before building.";
+in
 {
   imports = [ ./sd-image-btrfs.nix ];
 
@@ -18,6 +25,10 @@
     populateRootCommands = ''
       mkdir -p ./files/boot
       ${config.boot.loader.generic-extlinux-compatible.populateCmd} -c ${config.system.build.toplevel} -d ./files/boot
+
+      # Copy wireless secrets into the image
+      mkdir -p ./files/var/lib/secrets
+      cp ${wirelessConf} ./files/var/lib/secrets/wireless.conf
     '';
     populateFirmwareCommands = "";
   };
