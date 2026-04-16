@@ -33,13 +33,7 @@ in
   services.journald = {
     storage = "volatile";
     rateLimitBurst = 300;
-    extraConfig = ''
-      MaxLevelStore=info
-      MaxLevelSyslog=info
-      MaxLevelKMsg=notice
-      MaxLevelConsole=info
-      MaxLevelWall=emerg
-    '';
+    extraConfig = "MaxLevelStore=info\nMaxLevelSyslog=info\nMaxLevelKMsg=notice\nMaxLevelConsole=info\nMaxLevelWall=emerg";
   };
 
   # ── Users & Groups ─────────────────────────────────────────────────────
