@@ -71,7 +71,7 @@ in
 
   hardware.deviceTree.enable = false;
 
-  zramSwap.enable = true;
+  zramSwap.enable = false;
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 }

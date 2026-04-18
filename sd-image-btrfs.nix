@@ -228,6 +228,7 @@ in
           device = "/dev/disk/by-uuid/${rootFileSystemUUID}";
           fsType = "btrfs";
           options = [ "noatime" "compress=zstd" "subvol=@boot"  ];
+          neededForBoot = true;
         };
         "/nix" = {
           device = "/dev/disk/by-uuid/${rootFileSystemUUID}";

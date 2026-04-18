@@ -82,4 +82,15 @@ in
     zstd
     gnutar
   ];
+  networking.firewall.enable=false;
+systemd.packages = [
+  (pkgs.runCommand "dev-ttyS0-device-override" {} ''
+    mkdir -p $out/etc/systemd/system/dev-ttyS0.device.d
+    cat > $out/etc/systemd/system/dev-ttyS0.device.d/override.conf << EOF
+[Unit]
+JobTimeoutSec=0
+EOF
+  '')
+];
+  services.getty.autologinUser = "nixos";
 }
