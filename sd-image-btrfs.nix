@@ -23,6 +23,12 @@
 with lib;
 
 let
+  rootFileSystemUUID =
+    if config.sdImage.rootPartitionUUID != null then
+      config.sdImage.rootPartitionUUID
+    else
+      "44444444-4444-4444-8888-888888888888";
+
   rootfsImage = pkgs.callPackage ./make-btrfs-fs.nix (
     {
       inherit (config.sdImage) storePaths;
@@ -30,6 +36,7 @@ let
       compressImage = config.sdImage.compressImage;
       populateImageCommands = config.sdImage.populateRootCommands;
       volumeLabel = "NIXOS_SD";
+      uuid = rootFileSystemUUID;
       subvolMap =
         let
           # UUID is for BTRFS root device, not just subvol ones.  Ooops.
@@ -47,9 +54,6 @@ let
           );
         in
         subvolMap;
-    }
-    // optionalAttrs (config.sdImage.rootPartitionUUID != null) {
-      uuid = config.sdImage.rootPartitionUUID;
     }
   );
 in
@@ -216,17 +220,17 @@ in
       }
       // {
         "/" = {
-          device = "/dev/disk/by-label/NIXOS_SD";
+          device = "/dev/disk/by-uuid/${rootFileSystemUUID}";
           fsType = "btrfs";
           options = [ "noatime" "compress=zstd" "subvol=@"  ];
         };
         "/boot" = {
-          device = "/dev/disk/by-label/NIXOS_SD";
+          device = "/dev/disk/by-uuid/${rootFileSystemUUID}";
           fsType = "btrfs";
           options = [ "noatime" "compress=zstd" "subvol=@boot"  ];
         };
         "/nix" = {
-          device = "/dev/disk/by-label/NIXOS_SD";
+          device = "/dev/disk/by-uuid/${rootFileSystemUUID}";
           fsType = "btrfs";
           options = [ "noatime" "compress=zstd" "subvol=@nix"  ];
           neededForBoot = true;
