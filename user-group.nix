@@ -41,12 +41,11 @@ in
     inherit hashedPassword;
     isNormalUser = true;
     home = "/home/${username}";
-    extraGroups = [ "users" "networkmanager" "wheel" "docker" ];
+    extraGroups = [ "users" "networkmanager" "wheel" ];
   };
 
   users.groups = {
     ${username} = { };
-    docker = { };
   };
 
   # ── System Packages ────────────────────────────────────────────────────

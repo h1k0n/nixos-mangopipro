@@ -47,7 +47,7 @@ in
     ];
 
     initrd = {
-      kernelModules = [ "dm_mod" ];
+      kernelModules = [ "dm_mod" "configfs" ];
       availableKernelModules = lib.mkForce [
         "btrfs"
         "sd_mod"
@@ -57,6 +57,9 @@ in
         "xhci_hcd"
         "usbhid"
         "hid_generic"
+        "crypto-zstd"
+        "nf_tables"
+        "nf_conntrack"
       ];
       compressor = "gzip";
       systemd.enable = true;
