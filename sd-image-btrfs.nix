@@ -222,6 +222,7 @@ in
         "/" = {
           device = "/dev/disk/by-uuid/${rootFileSystemUUID}";
           fsType = "btrfs";
+          autoResize = config.sdImage.expandOnBoot;
           options = [ "noatime" "compress=zstd" "subvol=@"  ];
         };
         "/boot" = {
@@ -239,6 +240,7 @@ in
       };
 
     sdImage.storePaths = [ config.system.build.toplevel ];
+    boot.growPartition = config.sdImage.expandOnBoot;
 
     system.build.sdImage = pkgs.callPackage (
       {
@@ -351,17 +353,6 @@ in
 
     boot.postBootCommands =
       let
-        expandOnBoot = lib.optionalString config.sdImage.expandOnBoot ''
-          # Figure out device names for the boot device and root filesystem.
-          rootPart=$(${pkgs.util-linux}/bin/findmnt -n -o SOURCE /)
-          bootDevice=$(lsblk -npo PKNAME $rootPart)
-          partNum=$(lsblk -npo PARTNUM $rootPart)
-
-          # Resize the root partition and the filesystem to fit the disk
-          echo ",+," | sfdisk -N$partNum --no-reread $bootDevice
-          ${pkgs.parted}/bin/partprobe
-          ${pkgs.btrfs-progs}/bin/btrfs filesystem resize max /
-        '';
         nixPathRegistrationFile = config.sdImage.nixPathRegistrationFile;
       in
       ''
@@ -369,8 +360,6 @@ in
         if [ -f ${nixPathRegistrationFile} ]; then
           set -euo pipefail
           set -x
-
-          ${expandOnBoot}
 
           # Register the contents of the initial Nix store
           ${config.nix.package.out}/bin/nix-store --load-db < ${nixPathRegistrationFile}
